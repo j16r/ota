@@ -1,0 +1,6 @@
+[package]
+name = "ota"
+version = "0.1.0"
+authors = ["John Barker <jebarker@gmail.com>"]
+
+[dependencies]
