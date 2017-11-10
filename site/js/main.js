@@ -1,8 +1,11 @@
-var IntroScreen = React.createClass({
-  handleError: function(err) {
+console.log("loading main.js");
+
+class IntroScreen extends React.Component {
+  handleError(err) {
     console.error(err)
-  },
-  render: function() {
+  }
+
+  render() {
     return (
       <div>
         <section>
@@ -20,9 +23,10 @@ var IntroScreen = React.createClass({
       </div>
     )
   }
-})
+}
 
+const introScreen = <IntroScreen/>;
 ReactDOM.render(
-  <IntroScreen></IntroScreen>,
-  document.getElementById('main')
+  introScreen,
+  document.getElementById('root')
 );

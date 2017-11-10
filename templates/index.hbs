@@ -6,18 +6,30 @@
     <title>ota</title>
     <meta name="description" content="ota">
     <link href="base.css" rel="stylesheet" type="text/css"/>
-    {{#if debug }}
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.0/react.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.0/react-dom.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+    {{#if nocdn }}
+      {{#if debug }}
+        <script type="text/javascript" src="js/vendor/react/16.0.0/react.development.js"></script>
+        <script type="text/javascript" src="js/vendor/react/16.0.0/react-dom.development.js"></script>
+        <script type="text/javascript" src="js/vendor/babel-standalone/6.26.0/babel.js"></script>
+      {{else }}
+        <script type="text/javascript" src="js/vendor/react/16.0.0/react.production.min.js"></script>
+        <script type="text/javascript" src="js/vendor/react/16.0.0/react-dom.production.min.js"></script>
+        <script type="text/javascript" src="js/vendor/babel-standalone/6.26.0/babel.min.js"></script>
+      {{/if }}
     {{else }}
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.0/react.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.0/react-dom.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+      {{#if debug }}
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/16.0.0/umd/react.development.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.0.0/umd/react-dom.development.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.js"></script>
+      {{else }}
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/16.0.0/umd/react.production.min.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.0.0/umd/react-dom.production.min.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
+      {{/if }}
     {{/if }}
-    <script type="text/babel" src="main.js"></script>
+    <script type="text/babel" src="js/main.js"></script>
   </head>
   <body style="height: 100%; margin: 0">
-    <div id="main"></div>
+    <div id="root"></div>
   </body>
 </html>

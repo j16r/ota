@@ -17,11 +17,12 @@ fn redirect_to_root() -> Redirect {
 #[derive(Serialize)]
 struct IndexContext {
     debug: bool,
+    nocdn: bool,
 }
 
 #[get("/index.html")]
 fn serve_index() -> Template {
-    let context = IndexContext{debug: true};
+    let context = IndexContext{debug: false, nocdn: false};
     Template::render("index", &context)
 }
 
