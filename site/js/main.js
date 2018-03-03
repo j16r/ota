@@ -2,12 +2,16 @@ console.log("loading main.js");
 
 class IntroScreen extends React.Component {
   handleError(err) {
-    console.error(err)
+    console.error(err);
+  }
+
+  onClick() {
+    console.error("clicked");
   }
 
   render() {
     return (
-      <div>
+      <div onClick={this.onClick}>
         <section>
           <div>
             <h1>

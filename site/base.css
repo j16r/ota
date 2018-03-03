@@ -48,6 +48,9 @@ html, body {
   height: 100%;
 }
 body div {
+  height: 100%;
+}
+body div div {
   display: flex;
   align-items: center;
   justify-content: center;
