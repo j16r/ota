@@ -18,18 +18,16 @@
       {{/if }}
     {{else }}
       {{#if debug }}
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/16.0.0/umd/react.development.js"></script>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.0.0/umd/react-dom.development.js"></script>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.js"></script>
+        <script type="text/javascript" src="{{ cdn_url }}react/16.0.0/umd/react.development.js"></script>
+        <script type="text/javascript" src="{{ cdn_url }}react-dom/16.0.0/umd/react-dom.development.js"></script>
+        <script type="text/javascript" src="{{ cdn_url }}babel-standalone/6.26.0/babel.js"></script>
       {{else }}
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/16.0.0/umd/react.production.min.js"></script>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.0.0/umd/react-dom.production.min.js"></script>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
+        <script type="text/javascript" src="{{ cdn_url }}react/16.0.0/umd/react.production.min.js"></script>
+        <script type="text/javascript" src="{{ cdn_url }}react-dom/16.0.0/umd/react-dom.production.min.js"></script>
+        <script type="text/javascript" src="{{ cdn_url }}babel-standalone/6.26.0/babel.min.js"></script>
       {{/if }}
     {{/if }}
     <script type="text/babel" src="js/main.js"></script>
   </head>
-  <body style="height: 100%; margin: 0">
-    <div id="root"></div>
-  </body>
+  <body style="height: 100%; margin: 0" id="root"></body>
 </html>

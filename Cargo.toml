@@ -6,8 +6,8 @@ authors = ["John Barker <jebarker@gmail.com>"]
 [features]
 
 [dependencies]
-rocket = "*"
-rocket_codegen = "*"
+rocket = "0.3.6"
+rocket_codegen = "0.3.6"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
