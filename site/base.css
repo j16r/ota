@@ -83,8 +83,8 @@ span.modal {
   border-radius: 5px;
   max-width: 500px;
   min-height: 300px;
-  margin: 0 auto;
-  padding: 30px;
+  margin: 0;
+  padding: 20px;
   display: inline-block;
   z-index: 1;
   position: absolute;

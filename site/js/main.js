@@ -14,8 +14,8 @@ class IntroScreen extends React.Component {
   onClick = (event) => {
     this.setState({
       isOpen: !this.state.isOpen,
-      mouseClickX: event.screenX,
-      mouseClickY: event.screenY
+      mouseClickX: event.clientX,
+      mouseClickY: event.clientY
     });
   }
 
