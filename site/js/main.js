@@ -48,9 +48,22 @@ class IntroScreen extends React.Component {
 class EditDialog extends React.Component {
   onSave = () => {
     console.log("onSave");
-    this.setState({
-      show: false,
-    });
+    fetch('/articles', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'article',
+        body: '<h1>YO!</h1>',
+      })
+    })
+      .then((response) => {
+        this.setState({
+          show: false,
+        });
+      });
   }
 
   onCancel = () => {
