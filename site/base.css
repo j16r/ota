@@ -50,27 +50,46 @@ html, body {
 body div {
   height: 100%;
 }
-body div div {
+
+/* Intro screen styles, these should get removed by the user in short order */
+section.banner {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
 }
-section {
+section.banner span {
   background: url("logo.svg") center center / 63% 100% no-repeat;
   height: 20vmin;
   width: 20vmin;
 }
-section h1 {
+section.banner span h1 {
   font-family: Georgia;
   font-weight: 400;
   font-size: 8vmin;
   line-height: 140%;
   align-self: flex-end;
 }
-section h2 {
+section.banner span h2 {
   font-family: Helvetica Neue, HelveticaNeue, Helvetica, Arial;
   font-weight: 400;
   font-size: 1.8vmin;
   align-self: flex-end;
+}
+
+/* Edit dialog */
+span.modal {
+  background-color: #fff;
+  border-radius: 5px;
+  max-width: 500px;
+  min-height: 300px;
+  margin: 0 auto;
+  padding: 30px;
+  display: inline-block;
+  z-index: 1;
+  position: absolute;
+}
+
+span.modal input[type="textarea"] {
+  height: 250px;
 }
