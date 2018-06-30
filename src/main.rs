@@ -30,8 +30,10 @@ struct Article {
 fn create_article(article: Json<Article>) {
     let now: DateTime<Utc> = Utc::now();
     let path = format!("data/articles/{}/{}", now.format("%Y/%m/%d"), article.name);
-    create_dir_all(path);
-    json!({"status": "ok"});
+    match create_dir_all(path) {
+        Ok(()) => json!({"status": "ok"}),
+        Err(_) => json!({"status": "error"}),
+    };
 }
 
 #[derive(Serialize)]
