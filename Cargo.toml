@@ -6,6 +6,8 @@ authors = ["John Barker <jebarker@gmail.com>"]
 [features]
 
 [dependencies]
+handlebars = "1.0"
+regex = "1.0.1"
 rocket = "0.3.6"
 rocket_codegen = "0.3.6"
 serde = "1.0"
