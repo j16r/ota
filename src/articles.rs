@@ -19,6 +19,7 @@ fn article_file_name<'a>(path: &'a str) -> Cow<'a, str> {
 
 pub fn create(article: Article) -> std::io::Result<()> {
     let now: DateTime<Utc> = Utc::now();
+
     // TODO: path is full we wanna clip off the article here
     let path_str = format!(
         "data/articles/{}/{}",
@@ -26,10 +27,8 @@ pub fn create(article: Article) -> std::io::Result<()> {
         article_file_name(&article.name).into_owned());
     let path = Path::new(&path_str);
     let dir = path.parent().unwrap();
-    match create_dir_all(&dir) {
-        Ok(()) => json!({"status": "ok"}),
-        Err(_) => json!({"status": "error"}),
-    };
+    create_dir_all(&dir)?;
+
     let mut file = File::create(path)?;
     file.write_all(article.body.as_bytes())?;
     Ok(())

@@ -1,10 +1,10 @@
-// 
+//
 // Intro screen component
 //
 class IntroScreen extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {isOpen: false, mouseClickX: 0, mouseClickY: 0};
+    this.state = {isOpen: false, mouseClickX: 0, mouseClickY: 0, body: ''};
   }
   
   handleError(err) {
@@ -46,8 +46,17 @@ class IntroScreen extends React.Component {
 // Edit Dialog pops up a small text editor for updating or creating content.
 //
 class EditDialog extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      show: props.show,
+      inputValue: ''
+    };
+  }
+  
   onSave = () => {
-    console.log("onSave");
+    console.log("onSave", this);
+
     fetch('/articles', {
       method: 'POST',
       headers: {
@@ -56,14 +65,14 @@ class EditDialog extends React.Component {
       },
       body: JSON.stringify({
         name: 'article',
-        body: '<h1>YO!</h1>',
+        body: this.state.inputValue,
       })
-    })
-      .then((response) => {
-        this.setState({
-          show: false,
-        });
+    }).then((response) => {
+      console.log("Got response: ", response, this);
+      this.setState({
+        show: false,
       });
+    });
   }
 
   onCancel = () => {
@@ -73,8 +82,14 @@ class EditDialog extends React.Component {
     });
   }
 
-  onClick = (event) => {
+  onClick(event) {
     event.stopPropagation();
+  }
+
+  updateInputValue(event) {
+    this.setState({
+      inputValue: event.target.value
+    });
   }
 
   render() {
@@ -84,7 +99,7 @@ class EditDialog extends React.Component {
 
     return (
       <span style={{"left": this.props.x, "top": this.props.y}} onClick={this.onClick} className="modal">
-        <input type="textarea"/>
+        <input type="textarea" value={this.state.inputValue} onChange={event => this.updateInputValue(event)}/>
         <section className="footer">
           <button onClick={this.onSave}>
             Save
