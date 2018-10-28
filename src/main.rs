@@ -2,10 +2,11 @@
 #![plugin(rocket_codegen)]
 #![feature(custom_derive)]
 #![feature(extern_prelude)]
+#![feature(result_map_or_else)]
 
 #[macro_use] extern crate handlebars;
 extern crate rocket;
-#[macro_use] extern crate rocket_contrib;
+extern crate rocket_contrib;
 #[macro_use] extern crate serde_derive;
 extern crate serde;
 extern crate chrono;
@@ -14,8 +15,9 @@ extern crate regex;
 
 mod templates;
 mod articles;
+mod error;
 
-use rocket::response::{NamedFile, Redirect, content};
+use rocket::response::{NamedFile, Redirect, content, status::NotFound};
 use rocket_contrib::Template;
 use std::path::{Path, PathBuf};
 use rocket_contrib::Json;
@@ -27,7 +29,10 @@ const CLOUDFLARE_CDN_URL: &'static str = "https://cdnjs.cloudflare.com/ajax/libs
 
 #[post("/articles", format = "application/json", data = "<article>")]
 fn create_article(article: Json<Article>) -> std::io::Result<()> {
-    create(Article{name: article.name.clone(), body: article.body.clone()})
+    create(Article{
+        name: article.name.clone(),
+        body: article.body.clone()
+    })
 }
 
 #[get("/")]
@@ -35,9 +40,16 @@ fn redirect_to_root() -> Redirect {
     Redirect::to("/index.html")
 }
 
-#[get("/articles/<article..>")]
-fn serve_article(article: PathBuf) -> Option<content::Html<String>> {
-    Some(content::Html(render(article.to_str()?, &context())))
+#[get("/articles/<path..>")]
+fn serve_article(path: PathBuf) -> Result<content::Html<String>, NotFound<String>> {
+    let article_query = match path.to_str() {
+        Some(v) => v,
+        None => return Err(NotFound("".to_string()))
+    };
+    match render(&article_query, &context()) {
+        Ok(t) => Ok(content::Html(t)),
+        Err(e) => Err(NotFound(format!("Bad path: {:?}", article_query))),
+    }
 }
 
 #[derive(Serialize)]
@@ -48,8 +60,9 @@ struct IndexContext {
 }
 
 #[get("/index.html")]
-fn serve_index() -> Option<content::Html<String>> {
-    Some(content::Html(render("index", &context())))
+fn serve_index() -> content::Html<String> {
+    let template = render("index", &context()).unwrap();
+    content::Html(template)
 }
 
 fn context() -> IndexContext {
