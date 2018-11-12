@@ -21,6 +21,7 @@ use rocket::response::{NamedFile, Redirect, content, status::NotFound};
 use rocket_contrib::Template;
 use std::path::{Path, PathBuf};
 use rocket_contrib::Json;
+use std::io::ErrorKind;
 
 use articles::{Article, create};
 use templates::render;
@@ -37,7 +38,7 @@ fn create_article(article: Json<Article>) -> std::io::Result<()> {
 
 #[get("/")]
 fn redirect_to_root() -> Redirect {
-    Redirect::to("/index.html")
+    Redirect::to("/articles/@index")
 }
 
 #[get("/articles/<path..>")]
@@ -48,7 +49,10 @@ fn serve_article(path: PathBuf) -> Result<content::Html<String>, NotFound<String
     };
     match render(&article_query, &context()) {
         Ok(t) => Ok(content::Html(t)),
-        Err(e) => Err(NotFound(format!("Bad path: {:?}", article_query))),
+        Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => {
+            Err(NotFound(format!("article not found for query: {:?}", article_query)))
+        },
+        Err(e) => panic!("error serving {:?}", e)
     }
 }
 
@@ -57,12 +61,6 @@ struct IndexContext {
     debug: bool,
     nocdn: bool,
     cdn_url: &'static str,
-}
-
-#[get("/index.html")]
-fn serve_index() -> content::Html<String> {
-    let template = render("index", &context()).unwrap();
-    content::Html(template)
 }
 
 fn context() -> IndexContext {
@@ -82,7 +80,6 @@ fn main() {
     rocket::ignite()
         .mount("/", routes![
                redirect_to_root,
-               serve_index,
                serve_article,
                serve_static_assets,
                create_article])
