@@ -7,8 +7,8 @@ use error::Error;
 
 // Provides a helper to embed an article in the current template
 //handlebars_helper!(article_helper: |article: PathBuf| render(article));
-//handlebars_helper!(article_helper: |name: str| render(name, &()));
-handlebars_helper!(article_helper: |name: str| format!("article {:?}", name));
+handlebars_helper!(article_helper: |name: str| render_inline(name, &()));
+//handlebars_helper!(article_helper: |name: str| format!("article {:?}", name));
 
 // Articles returns all articles that match a pattern, can be used for pagination
 //handlebars_helper!(articles_helper: |names: [str]| render_collection(names));
@@ -23,6 +23,12 @@ fn handlebars() -> Handlebars {
     handlebars.register_helper("article", Box::new(article_helper));
     handlebars.register_helper("articles", Box::new(articles_helper));
     handlebars
+}
+
+pub fn render_inline<T>(query: &str, context: &T) -> String
+where
+    T: Serialize {
+    render(query, context).unwrap_or("".into())
 }
 
 pub fn render<T>(query: &str, context: &T) -> Result<String, Error>

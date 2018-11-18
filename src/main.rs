@@ -38,7 +38,7 @@ fn create_article(article: Json<Article>) -> std::io::Result<()> {
 
 #[get("/")]
 fn redirect_to_root() -> Redirect {
-    Redirect::to("/articles/@index")
+    Redirect::to("/index")
 }
 
 #[get("/articles/<path..>")]
@@ -76,13 +76,21 @@ fn serve_static_assets(file: PathBuf) -> std::io::Result<NamedFile> {
     NamedFile::open(Path::new("site/").join(file))
 }
 
+#[get("/index")]
+fn serve_index() -> content::Html<String> {
+    let template = render("@index", &context()).unwrap();
+    content::Html(template)
+}
+
 fn main() {
     rocket::ignite()
         .mount("/", routes![
                redirect_to_root,
+               create_article,
                serve_article,
+               serve_index,
                serve_static_assets,
-               create_article])
+        ])
         .attach(Template::fairing())
         .launch();
 }
