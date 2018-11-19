@@ -5,6 +5,7 @@
 #![feature(result_map_or_else)]
 
 #[macro_use] extern crate handlebars;
+extern crate rand;
 extern crate rocket;
 extern crate rocket_contrib;
 #[macro_use] extern crate serde_derive;
@@ -23,17 +24,14 @@ use std::path::{Path, PathBuf};
 use rocket_contrib::Json;
 use std::io::ErrorKind;
 
-use articles::{Article, create};
+use articles::{Article, NewArticleRequest, create};
 use templates::render;
 
 const CLOUDFLARE_CDN_URL: &'static str = "https://cdnjs.cloudflare.com/ajax/libs/";
 
 #[post("/articles", format = "application/json", data = "<article>")]
-fn create_article(article: Json<Article>) -> std::io::Result<()> {
-    create(Article{
-        name: article.name.clone(),
-        body: article.body.clone()
-    })
+fn create_article(article: Json<NewArticleRequest>) -> std::io::Result<()> {
+    create(Article::new(&article))
 }
 
 #[get("/")]
