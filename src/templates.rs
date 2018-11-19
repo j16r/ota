@@ -6,9 +6,7 @@ use articles::{lookup_article, lookup_articles};
 use error::Error;
 
 // Provides a helper to embed an article in the current template
-//handlebars_helper!(article_helper: |article: PathBuf| render(article));
 handlebars_helper!(article_helper: |name: str| render_inline(name, &()));
-//handlebars_helper!(article_helper: |name: str| format!("article {:?}", name));
 
 // Articles returns all articles that match a pattern, can be used for pagination
 //handlebars_helper!(articles_helper: |names: [str]| render_collection(names));

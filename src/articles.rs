@@ -1,20 +1,80 @@
 use chrono::prelude::*;
 use regex::Regex;
 use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::fs::{File, create_dir_all, read_dir, ReadDir};
 use std::io::prelude::*;
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
-use std::fmt;
+use std::iter;
+use rand::Rng;
 
-#[derive(Serialize, Deserialize)]
+type PropertySet = HashMap<String, String>;
+
+#[derive(Serialize, Default, Debug)]
 pub struct Article {
-    pub name: String,
+    name: String,
+    body: String,
+    id: Option<String>,
+    properties: PropertySet,
+    tags: HashSet<String>
+}
+
+fn random_string() -> String {
+    let mut rng = rand::thread_rng();
+    iter::repeat(16).map(|_| rng.gen_range(b'A', b'Z') as char).collect::<String>()
+}
+
+impl Article {
+    pub fn new(request: &NewArticleRequest) -> Article {
+        let name = Article::generate_name(&request.body);
+        let mut article = Article{
+            name: name,
+            body: request.body.clone(),
+            id: request.id.clone(),
+            ..Default::default()
+        };
+        if let Some(ref properties) = request.properties {
+            article.properties = properties.clone();
+        }
+        Article::add_default_properties(&mut article.properties);
+        if let Some(ref tags) = request.tags {
+            article.tags = tags.clone();
+        }
+        article
+    }
+
+    fn generate_name(body: &str) -> String {
+        for line in body.lines() {
+            let name = line.trim();
+            if !name.is_empty() {
+                return name.to_string();
+            }
+        }
+        format!("article-{}", random_string())
+    }
+
+    fn add_default_properties(properties: &mut PropertySet) {
+        let now: DateTime<Utc> = Utc::now();
+        properties.insert("timestamp".to_string(), now.to_string());
+        properties.insert("epoch".to_string(), now.timestamp().to_string());
+        properties.insert("year".to_string(), now.format("%Y").to_string());
+        properties.insert("month".to_string(), now.format("%m").to_string());
+        properties.insert("day".to_string(), now.format("%d").to_string());
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NewArticleRequest {
     pub body: String,
+    pub id: Option<String>,
+    pub properties: Option<PropertySet>,
+    pub tags: Option<HashSet<String>>
 }
 
 fn article_file_name<'a>(path: &'a str) -> Cow<'a, str> {
-    let article_filename_regex = Regex::new(r"[^A-Za-z]").unwrap();
+    let article_filename_regex = Regex::new(r"[^A-Za-z0-9]+").unwrap();
     article_filename_regex.replace_all(path, "_")
 }
 
@@ -22,22 +82,80 @@ pub fn create(article: Article) -> std::io::Result<()> {
     let now: DateTime<Utc> = Utc::now();
 
     // TODO: path is full we wanna clip off the article here
-    let path_str = format!(
-        "data/articles/{}/{}",
+    let location = format!(
+        "data/articles/{}/{}.hbs",
         now.format("%Y/%m/%d"),
         &article_file_name(&article.name));
-    let path = Path::new(&path_str);
+    let path = Path::new(&location);
     let dir = path.parent().unwrap();
     create_dir_all(&dir)?;
 
     let mut file = File::create(path)?;
     file.write_all(article.body.as_bytes())?;
+
+    update_index(article, path)?;
+
     Ok(())
 }
 
+fn update_index(article: Article, location: &Path) -> std::io::Result<()> {
+    println!("update_index({:?}, {:?})", article, location);
+    if let Some(id) = article.id {
+        return update_index_id(&id, location, Path::new("data/index/"));
+    }
+
+    Ok(())
+}
+
+fn update_index_id(segment: &str, location: &Path, search_path: &Path) -> std::io::Result<()> {
+    println!("update_index_id({:?}, {:?}, {:?})", segment, location, search_path);
+
+    let reader = read_dir(search_path)?;
+    for entry in reader {
+        let path = entry?.path();
+        if path.is_dir() {
+            let path_str = path.file_name().unwrap().to_str().unwrap();
+            println!("path {:?}", path_str);
+            if segment == path_str {
+                println!("full match");
+
+                // TODO: an article already exists, should we preserve an index to it somehow?
+                return create_index_entry(&path, location);
+
+            } else if path_str.starts_with(segment) {
+                println!("collision");
+                // collision
+
+            } else if segment.starts_with(path_str) {
+                println!("segment match");
+                let segment = segment.get(path_str.len()..).unwrap();
+                return update_index_id(segment, location, &path);
+
+            } else {
+                println!("no match");
+                break
+            }
+        }
+    }
+
+    println!("empty");
+    let destination = search_path.join(segment);
+    create_index_entry(&destination, location)
+}
+
+fn create_index_entry(destination: &Path, location: &Path) -> std::io::Result<()> {
+    println!("creating index at {:?} for location {:?}", destination, location);
+
+    create_dir_all(&destination)?;
+
+    let mut file = File::create(&destination.join("0"))?;
+    file.write_all(location.to_str().unwrap().as_bytes())
+}
+
 pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
+    println!("lookup_article(query_str: {:?})", query_str);
     let query : Query = query_str.into();
-    let path = match scan_articles(&query_str.into(), &mut index_reader("data/index")?).pop() {
+    let path = match scan_articles(&query_str.into(), &mut index_reader("data/index")?)?.pop() {
         Some(article) => article,
         None => {
             if let Some(id) = query.id {
@@ -101,65 +219,15 @@ impl<'a> From<&'a str> for Query {
     }
 }
 
-//struct IndexIterator {
-    //reader: ReadDir
-//}
-
-//impl Iterator for IndexIterator {
-    //type Item = Key;
-
-    //fn next(&mut self) -> Option<Key> {
-        //loop {
-            //match self.reader.next() {
-                //Some(entry) => {
-                    //let path = entry.unwrap().path();
-                    //if !path.is_dir() {
-                        //if path.starts_with("ids") {
-                        //} else if path.starts_with("tags") {
-                        //} else if path.starts_with("properties") {
-                        //}
-
-                        //return Some(Key::ID{id: path.to_str().unwrap().into()})
-                    //}
-                //},
-                //None => return None,
-            //}
-        //}
-    //}
-//}
-
 enum Key {
     ID{id: String},
     Property{key: String, value: String},
     Tag{name: String}
 }
 
-// we have an index, typically a file system which contains:
-//  arcticles
-//  ways to refer back to the article (text file containing an article path)
-//      id
-//          a/
-//              ardvark
-//              l/
-//                  pha
-//                  phabetical
-//              note
-//
-// so if we have a key of alphabetical, we have to look up a, l, then [pha, phabetical]
-//
-// so [alphabetical]
-// [a] alphabetical starts with a
-// [ardvark, l] lphaebetical
-// [pha, phabetical] phabetical
-//
-
-//scan starts with an iterator which returns either another iterator (with a name) or a terminal node
-
-//so an index is an iterator that can return an iterator or a terminal
-
 trait Index {
     fn from(&self, entry: &Entry) -> Self;
-    fn find_matches(&mut self, query: &Query) -> Vec<Entry>;
+    fn find_matches(&mut self, query: &Query) -> std::io::Result<Vec<Entry>>;
 }
 
 enum Entry {
@@ -193,7 +261,7 @@ impl Index for DirectoryIndex {
         }
     }
 
-    fn find_matches(&mut self, query: &Query) -> Vec<Entry> {
+    fn find_matches(&mut self, query: &Query) -> std::io::Result<Vec<Entry>> {
         let mut matches : Vec<Entry> = Vec::new();
         match self.reader.next() {
             Some(entry) => {
@@ -201,27 +269,30 @@ impl Index for DirectoryIndex {
                     let path = entry.unwrap().path();
                     if path.is_dir() {
                         let path_str = path.to_str().unwrap();
-                        if id.starts_with(path_str) {
-                            matches.push(Entry::Branch(path_str.into()));
-                        }
-                    } else {
                         if path == path {
-                            matches.push(Entry::Article(path));
+                            // TODO: scan for latest file
+                            let mut file = File::open(path.join("0"))?;
+                            let mut buffer = String::new();
+                            file.read_to_string(&mut buffer)?;
+
+                            matches.push(Entry::Article(buffer.into()));
+                        } else if id.starts_with(path_str) {
+                            matches.push(Entry::Branch(path_str.into()));
                         }
                     }
                 }
             },
             _ => (),
         }
-        matches
+        Ok(matches)
     }
 }
 
-fn scan_articles<I>(query: &Query, index: &mut I) -> Vec<PathBuf>
+fn scan_articles<I>(query: &Query, index: &mut I) -> std::io::Result<Vec<PathBuf>>
     where I: Index {
     let mut matches : Vec<PathBuf> = Vec::new();
     if let Some(ref id) = query.id {
-        for entry in index.find_matches(query).iter() {
+        for entry in index.find_matches(query)?.iter() {
             match entry {
                 Entry::Article(path) => matches.push(path.into()),
                 Entry::Branch(branch) => {
@@ -231,28 +302,14 @@ fn scan_articles<I>(query: &Query, index: &mut I) -> Vec<PathBuf>
                         ..Default::default()
                     };
                     matches.append(
-                        &mut scan_articles(&new_query, &mut index.from(entry)).clone());
+                        &mut scan_articles(&new_query, &mut index.from(entry))?.clone());
                 }
             }
         }
     }
-    matches
+    Ok(matches)
 }
 
-
-//fn scan_articles<'a, I>(query: &Query, index: I) -> Vec<PathBuf>
-//where
-    //I: Iterator<Item = &'a Key> {
-    //let mut matches : Vec<PathBuf> = Vec::new();
-    //for key in index {
-        //match key {
-            //Key::ID{id} => return vec![id.into()],
-            //Key::Tag{name} => matches.push(name.into()),
-            //_ => (),
-        //};
-    //}
-    //matches
-//}
 
 #[cfg(test)]
 mod tests {
@@ -262,6 +319,7 @@ mod tests {
     fn test_article_file_name() {
         assert_eq!(article_file_name("abcd"), "abcd");
         assert_eq!(article_file_name("a!@#bcd"), "a___bcd");
+        assert_eq!(article_file_name("number 10"), "number_10");
         assert_eq!(article_file_name(""), "");
     }
 
@@ -283,6 +341,6 @@ mod tests {
         let index = [Key::ID{id: "index".to_string()}];
 
         let result : Vec<PathBuf> = vec!["index".into()];
-        assert_eq!(scan_articles(&"@index".into(), index.iter()), result);
+        assert_eq!(scan_articles(&"@index".into(), index.iter()).unwrap(), result);
     }
 }

@@ -50,7 +50,8 @@ class EditDialog extends React.Component {
     super(props);
     this.state = {
       show: props.show,
-      inputValue: ''
+      inputValue: '',
+      idValue: ''
     };
   }
   
@@ -65,7 +66,10 @@ class EditDialog extends React.Component {
       },
       body: JSON.stringify({
         name: 'article',
+        id: this.state.idValue,
         body: this.state.inputValue,
+        properties: {},
+        tags: [],
       })
     }).then((response) => {
       console.log("Got response: ", response, this);
@@ -92,6 +96,12 @@ class EditDialog extends React.Component {
     });
   }
 
+  updateIdValue(event) {
+    this.setState({
+      idValue: event.target.value
+    });
+  }
+
   render() {
     if(!this.props.show) {
       return null;
@@ -100,6 +110,7 @@ class EditDialog extends React.Component {
     return (
       <span style={{"left": this.props.x, "top": this.props.y}} onClick={this.onClick} className="modal">
         <input type="textarea" value={this.state.inputValue} onChange={event => this.updateInputValue(event)}/>
+        <input value={this.state.idValue} onChange={event => this.updateIdValue(event)}/>
         <section className="footer">
           <button onClick={this.onSave}>
             Save
