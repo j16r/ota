@@ -22,8 +22,8 @@ use std::path::{Path, PathBuf};
 use rocket_contrib::json::Json;
 use std::io::ErrorKind;
 
-use articles::{Article, NewArticleRequest, create};
-use templates::render;
+use crate::articles::{Article, NewArticleRequest, create};
+use crate::templates::render;
 
 const CLOUDFLARE_CDN_URL: &'static str = "https://cdnjs.cloudflare.com/ajax/libs/";
 
