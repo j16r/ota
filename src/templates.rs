@@ -2,8 +2,8 @@ use handlebars::Handlebars;
 use std::io::prelude::*;
 use serde::Serialize;
 
-use articles::{lookup_article, lookup_articles};
-use error::Error;
+use crate::articles::{lookup_article, lookup_articles};
+use crate::error::Error;
 
 // Provides a helper to embed an article in the current template
 handlebars_helper!(article_helper: |name: str| render_inline(name, &()));

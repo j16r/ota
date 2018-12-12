@@ -313,7 +313,7 @@ fn scan_articles<I>(query: &Query, index: &mut I) -> std::io::Result<Vec<PathBuf
 
 #[cfg(test)]
 mod tests {
-    use articles::*;
+    use crate::articles::*;
 
     #[test]
     fn test_article_file_name() {
@@ -341,6 +341,6 @@ mod tests {
         let index = [Key::ID{id: "index".to_string()}];
 
         let result : Vec<PathBuf> = vec!["index".into()];
-        assert_eq!(scan_articles(&"@index".into(), index.iter()).unwrap(), result);
+        assert_eq!(scan_articles(&"@index".into(), &mut index.iter()).unwrap(), result);
     }
 }
