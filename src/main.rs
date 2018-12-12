@@ -1,12 +1,10 @@
 #![feature(plugin)]
-#![plugin(rocket_codegen)]
-#![feature(custom_derive)]
-#![feature(extern_prelude)]
 #![feature(result_map_or_else)]
+#![feature(proc_macro_hygiene, decl_macro)]
 
 #[macro_use] extern crate handlebars;
 extern crate rand;
-extern crate rocket;
+#[macro_use] extern crate rocket;
 extern crate rocket_contrib;
 #[macro_use] extern crate serde_derive;
 extern crate serde;
@@ -19,9 +17,9 @@ mod articles;
 mod error;
 
 use rocket::response::{NamedFile, Redirect, content, status::NotFound};
-use rocket_contrib::Template;
+use rocket_contrib::templates::Template;
 use std::path::{Path, PathBuf};
-use rocket_contrib::Json;
+use rocket_contrib::json::Json;
 use std::io::ErrorKind;
 
 use articles::{Article, NewArticleRequest, create};
@@ -75,9 +73,9 @@ fn serve_static_assets(file: PathBuf) -> std::io::Result<NamedFile> {
 }
 
 #[get("/index")]
-fn serve_index() -> content::Html<String> {
-    let template = render("@index", &context()).unwrap();
-    content::Html(template)
+fn serve_index() -> Result<content::Html<String>, error::Error> {
+    let template = render("@index", &context())?;
+    Ok(content::Html(template))
 }
 
 fn main() {
