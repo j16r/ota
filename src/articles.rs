@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_article_file_name() {
         assert_eq!(article_file_name("abcd"), "abcd");
-        assert_eq!(article_file_name("a!@#bcd"), "a___bcd");
+        assert_eq!(article_file_name("a!@#bcd"), "a_bcd");
         assert_eq!(article_file_name("number 10"), "number_10");
         assert_eq!(article_file_name(""), "");
     }
@@ -336,11 +336,23 @@ mod tests {
         assert_eq!(query.tags, vec!["tag1".to_string(), "tag2".to_string()]);
     }
 
+    struct TestIndex {}
+
+    impl Index for TestIndex {
+        fn from(&self, entry: &Entry) -> Self {
+            TestIndex{}
+        }
+
+        fn find_matches(&mut self, query: &Query) -> std::io::Result<Vec<Entry>> {
+            Ok(vec![Entry::Article(Path::new("index").into())])
+        }
+    }
+
     #[test]
     fn test_lookup_article() {
-        let index = [Key::ID{id: "index".to_string()}];
+        let mut index = TestIndex{};
 
         let result : Vec<PathBuf> = vec!["index".into()];
-        assert_eq!(scan_articles(&"@index".into(), &mut index.iter()).unwrap(), result);
+        assert_eq!(scan_articles(&"@index".into(), &mut index).unwrap(), result);
     }
 }
