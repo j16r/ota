@@ -1,3 +1,8 @@
+use rocket::response::{Responder};
+use rocket::request::{Request};
+use rocket::{Response, http::ContentType, http::Status};
+use std::io::ErrorKind;
+
 #[macro_export]
 macro_rules! impl_from_error {
     ($from:path, $to:tt::$ctor:tt) => {
@@ -14,6 +19,19 @@ pub enum Error {
     IoError(std::io::Error),
     TemplateError(handlebars::TemplateError),
     TemplateRenderError(handlebars::TemplateRenderError),
+}
+
+impl Responder<'static> for Error {
+    fn respond_to(self, _: &Request) -> Result<Response<'static>, Status> {
+        let mut response = Response::build();
+        match self {
+            Error::IoError(ref e) if e.kind() == ErrorKind::NotFound => {
+                response.status(Status::NotFound);
+            },
+            _ => return Err(Status::InternalServerError)
+        };
+        response.ok()
+    }
 }
 
 impl_from_error!(std::io::Error, Error::IoError);
