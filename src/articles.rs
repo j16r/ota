@@ -155,17 +155,31 @@ fn create_index_entry(destination: &Path, location: &Path) -> std::io::Result<()
 pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
     println!("lookup_article(query_str: {:?})", query_str);
     let query : Query = query_str.into();
-    let path = match scan_articles(&query_str.into(), &mut index_reader("data/index")?)?.pop() {
-        Some(article) => article,
-        None => {
-            if let Some(id) = query.id {
-                Path::new("templates/").join(format!("{}.hbs", id))
-            } else {
-                return Err(io::Error::new(ErrorKind::NotFound, "not found"));
-            }
-        }
+
+    let path = match find_first_matching_path(&query) {
+        Ok(r) => r,
+        Err(ref e) if e.kind() == ErrorKind::NotFound => {
+            load_fallback(&query)?
+        },
+        Err(e) => return Err(e)
     };
     File::open(path)
+}
+
+fn find_first_matching_path(query: &Query) -> std::io::Result<PathBuf> {
+    scan_articles(&query, &mut index_reader("data/index")?)
+        .and_then(|mut scanner| {
+            scanner.pop().ok_or_else(|| io::Error::new(ErrorKind::NotFound, "not found"))
+        })
+}
+
+fn load_fallback(query: &Query) -> std::io::Result<PathBuf> {
+    if let Some(ref id) = query.id {
+        println!("query#id = {:?}", id);
+        Ok(Path::new("templates/").join(format!("{}.hbs", id)))
+    } else {
+        return Err(io::Error::new(ErrorKind::NotFound, "not found"));
+    }
 }
 
 pub fn lookup_articles(query: &str) -> std::io::Result<Vec<File>> {
