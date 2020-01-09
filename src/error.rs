@@ -1,6 +1,6 @@
 use rocket::response::{Responder};
 use rocket::request::{Request};
-use rocket::{Response, http::ContentType, http::Status};
+use rocket::{Response, http::Status};
 use std::io::ErrorKind;
 
 #[macro_export]
