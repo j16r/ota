@@ -182,7 +182,7 @@ fn load_fallback(query: &Query) -> std::io::Result<PathBuf> {
     }
 }
 
-pub fn lookup_articles(query: &str) -> std::io::Result<Vec<File>> {
+pub fn lookup_articles(_query: &str) -> std::io::Result<Vec<File>> {
     Ok(vec![])
     //let path = Path::new("data/articles/").join(query);
 

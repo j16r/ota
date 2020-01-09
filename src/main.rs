@@ -1,5 +1,4 @@
 #![feature(plugin)]
-#![feature(result_map_or_else)]
 #![feature(proc_macro_hygiene, decl_macro)]
 
 #[macro_use] extern crate handlebars;
