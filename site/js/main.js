@@ -109,16 +109,24 @@ class EditDialog extends React.Component {
 
     return (
       <span style={{"left": this.props.x, "top": this.props.y}} onClick={this.onClick} className="modal">
-        <input type="textarea" value={this.state.inputValue} onChange={event => this.updateInputValue(event)}/>
-        <input value={this.state.idValue} onChange={event => this.updateIdValue(event)}/>
-        <section className="footer">
-          <button onClick={this.onSave}>
-            Save
-          </button>
-          <button onClick={this.onCancel}>
-            Close
-          </button>
-        </section>
+        <div>
+          <label>text</label>
+          <input type="textarea" value={this.state.inputValue} onChange={event => this.updateInputValue(event)}/>
+        </div>
+        <div>
+          <label>id</label>
+          <input value={this.state.idValue} onChange={event => this.updateIdValue(event)}/>
+        </div>
+        <div>
+          <section className="footer">
+            <button onClick={this.onSave}>
+              Save
+            </button>
+            <button onClick={this.onCancel}>
+              Close
+            </button>
+          </section>
+        </div>
       </span>
     );
   }
