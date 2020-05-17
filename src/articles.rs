@@ -159,10 +159,12 @@ pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
     let path = match find_first_matching_path(&query) {
         Ok(r) => r,
         Err(ref e) if e.kind() == ErrorKind::NotFound => {
+            println!("failed to find article, trying fallback...");
             load_fallback(&query)?
         },
         Err(e) => return Err(e)
     };
+    println!("using article {:?}", path);
     File::open(path)
 }
 
