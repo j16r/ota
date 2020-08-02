@@ -2,36 +2,10 @@
 <html lang="en" style="height: 100%">
   <head>
     <meta charset="utf-8">
-
     <title>ota</title>
     <meta name="description" content="ota">
-    <link href="/static/base.css" rel="stylesheet" type="text/css"/>
-    {{#if nocdn }}
-      {{#if debug }}
-        <script type="text/javascript" src="/static/js/vendor/react/16.0.0/react.development.js"></script>
-        <script type="text/javascript" src="/static/js/vendor/react/16.0.0/react-dom.development.js"></script>
-        <script type="text/javascript" src="/static/js/vendor/babel-standalone/6.26.0/babel.js"></script>
-        <script type="text/javascript" src="/static/js/vendor/require.js/2.3.5/require.js"></script>
-      {{else }}
-        <script type="text/javascript" src="/static/js/vendor/react/16.0.0/react.production.min.js"></script>
-        <script type="text/javascript" src="/static/js/vendor/react/16.0.0/react-dom.production.min.js"></script>
-        <script type="text/javascript" src="/static/js/vendor/babel-standalone/6.26.0/babel.min.js"></script>
-        <script type="text/javascript" src="/static/js/vendor/require.js/2.3.5/require.min.js"></script>
-      {{/if }}
-    {{else }}
-      {{#if debug }}
-        <script type="text/javascript" src="{{ cdn_url }}react/16.0.0/umd/react.development.js"></script>
-        <script type="text/javascript" src="{{ cdn_url }}react-dom/16.0.0/umd/react-dom.development.js"></script>
-        <script type="text/javascript" src="{{ cdn_url }}babel-standalone/6.26.0/babel.js"></script>
-        <script type="text/javascript" src="{{ cdn_url }}require.js/2.3.5/require.js"></script>
-      {{else }}
-        <script type="text/javascript" src="{{ cdn_url }}react/16.0.0/umd/react.production.min.js"></script>
-        <script type="text/javascript" src="{{ cdn_url }}react-dom/16.0.0/umd/react-dom.production.min.js"></script>
-        <script type="text/javascript" src="{{ cdn_url }}babel-standalone/6.26.0/babel.min.js"></script>
-        <script type="text/javascript" src="{{ cdn_url }}require.js/2.3.5/require.min.js"></script>
-      {{/if }}
-    {{/if }}
-    <script type="text/babel" src="/static/js/main.js"></script>
+    <link href="/static/reset.css" rel="stylesheet" type="text/css"/>
+    <link href="/static/intro.css" rel="stylesheet" type="text/css"/>
   </head>
   {{ article "@main" }}
 </html>

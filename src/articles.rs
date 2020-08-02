@@ -30,7 +30,7 @@ impl Article {
     pub fn new(request: &NewArticleRequest) -> Article {
         let name = Article::generate_name(&request.body);
         let mut article = Article{
-            name: name,
+            name,
             body: request.body.clone(),
             id: request.id.clone(),
             ..Default::default()
