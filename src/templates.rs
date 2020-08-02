@@ -1,6 +1,7 @@
 use handlebars::Handlebars;
 use std::io::prelude::*;
 use serde::Serialize;
+use std::fs::{File, create_dir_all, read_dir, ReadDir};
 
 use crate::articles::{lookup_article, lookup_articles};
 use crate::error::Error;
@@ -21,6 +22,17 @@ fn handlebars() -> Handlebars {
     handlebars.register_helper("article", Box::new(article_helper));
     handlebars.register_helper("articles", Box::new(articles_helper));
     handlebars
+}
+
+pub fn render_index<T>(context: &T) -> Result<String, Error>
+where
+    T: Serialize {
+
+    let mut buffer = String::new();
+    File::open("templates/index.hbs")?.read_to_string(&mut buffer)?;
+
+    let handlebars = handlebars();
+    handlebars.render_template(&buffer, context).map_err(|e| e.into())
 }
 
 pub fn render_inline<T>(query: &str, context: &T) -> String

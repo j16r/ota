@@ -22,9 +22,7 @@ use rocket_contrib::json::Json;
 use std::io::ErrorKind;
 
 use crate::articles::{Article, NewArticleRequest, create};
-use crate::templates::render;
-
-const CLOUDFLARE_CDN_URL: &'static str = "https://cdnjs.cloudflare.com/ajax/libs/";
+use crate::templates::{render, render_index};
 
 #[post("/articles", format = "application/json", data = "<article>")]
 fn create_article(article: Json<NewArticleRequest>) -> std::io::Result<()> {
@@ -54,15 +52,11 @@ fn serve_article(path: PathBuf) -> Result<content::Html<String>, NotFound<String
 #[derive(Serialize)]
 struct IndexContext {
     debug: bool,
-    nocdn: bool,
-    cdn_url: &'static str,
 }
 
 fn context() -> IndexContext {
     IndexContext{
         debug: true,
-        nocdn: true,
-        cdn_url: CLOUDFLARE_CDN_URL,
     }
 }
 
@@ -73,7 +67,7 @@ fn serve_static_assets(file: PathBuf) -> std::io::Result<NamedFile> {
 
 #[get("/index")]
 fn serve_index() -> Result<content::Html<String>, error::Error> {
-    let template = render("@index", &context())?;
+    let template = render_index(&context())?;
     Ok(content::Html(template))
 }
 
