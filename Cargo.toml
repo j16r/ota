@@ -19,7 +19,7 @@ serde_json = "1.0"
 [dependencies.rocket_contrib]
 version = "*"
 default-features = false
-features = ["handlebars_templates", "json"]
+features = ["handlebars_templates", "json", "serve"]
 
 [dependencies.chrono]
 version = "0.4"

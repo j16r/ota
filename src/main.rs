@@ -1,28 +1,28 @@
 #![feature(plugin)]
 #![feature(proc_macro_hygiene, decl_macro)]
 
-#[macro_use] extern crate handlebars;
+extern crate handlebars;
 extern crate rand;
-#[macro_use] extern crate rocket;
+extern crate regex;
+extern crate rocket;
 extern crate rocket_contrib;
-#[macro_use] extern crate serde_derive;
+extern crate serde_derive;
 extern crate serde;
 extern crate chrono;
-
-extern crate regex;
 
 mod templates;
 mod articles;
 mod error;
 
-use rocket::response::{NamedFile, Redirect, content, status::NotFound};
-use rocket_contrib::templates::Template;
-use std::path::{Path, PathBuf};
-use rocket_contrib::json::Json;
+use rocket::{get, post, routes};
+use rocket::response::{Redirect, content, status::NotFound};
+use rocket_contrib::{templates::Template, serve::StaticFiles, json::Json};
 use std::io::ErrorKind;
+use std::path::PathBuf;
+use serde_derive::Serialize;
 
 use crate::articles::{Article, NewArticleRequest, create};
-use crate::templates::{render, render_index};
+use crate::templates::{render, render_index, render_admin};
 
 #[post("/articles", format = "application/json", data = "<article>")]
 fn create_article(article: Json<NewArticleRequest>) -> std::io::Result<()> {
@@ -78,8 +78,8 @@ fn main() {
                create_article,
                serve_article,
                serve_index,
-               serve_static_assets,
         ])
+        .mount("/static", StaticFiles::from("site"))
         .attach(Template::fairing())
         .launch();
 }
