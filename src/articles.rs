@@ -9,6 +9,7 @@ use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::iter;
 use rand::Rng;
+use serde_derive::{Serialize, Deserialize};
 
 type PropertySet = HashMap<String, String>;
 

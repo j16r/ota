@@ -1,4 +1,4 @@
-use handlebars::Handlebars;
+use handlebars::{Handlebars, handlebars_helper};
 use std::io::prelude::*;
 use serde::Serialize;
 use std::fs::{File, create_dir_all, read_dir, ReadDir};
