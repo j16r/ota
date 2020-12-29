@@ -1,7 +1,7 @@
 use handlebars::{Handlebars, handlebars_helper};
 use std::io::prelude::*;
 use serde::Serialize;
-use std::fs::{File, create_dir_all, read_dir, ReadDir};
+use std::fs::File;
 
 use crate::articles::{lookup_article, lookup_articles};
 use crate::error::Error;
@@ -10,8 +10,7 @@ use crate::error::Error;
 handlebars_helper!(article_helper: |name: str| render_inline(name, &()));
 
 // Articles returns all articles that match a pattern, can be used for pagination
-//handlebars_helper!(articles_helper: |names: [str]| render_collection(names));
-handlebars_helper!(articles_helper: |name: str| format!("article {:?}", name));
+handlebars_helper!(articles_helper: |expression: str| render_collection(expression, &()));
 
 handlebars_helper!(hex_helper: |v: i64| format!("0x{:x}", v));
 
@@ -53,15 +52,15 @@ where
     handlebars.render_template(&buffer, context).map_err(|e| e.into())
 }
 
-pub fn render_collection<T>(query: &str, context: &T) -> Result<String, Error>
+pub fn render_collection<T>(query: &str, context: &T) -> String
 where
     T: Serialize {
     let mut buffer = String::new();
 
-    for article in lookup_articles(&query)?.iter_mut() {
-        article.read_to_string(&mut buffer)?;
+    for article in lookup_articles(&query).unwrap().iter_mut() {
+        article.read_to_string(&mut buffer).unwrap();
     }
 
     let handlebars = handlebars();
-    handlebars.render_template(&buffer, context).map_err(|e| e.into())
+    handlebars.render_template(&buffer, context).unwrap()
 }
