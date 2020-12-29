@@ -60,9 +60,11 @@ fn context() -> IndexContext {
     }
 }
 
-#[get("/static/<file..>")]
-fn serve_static_assets(file: PathBuf) -> std::io::Result<NamedFile> {
-    NamedFile::open(Path::new("site/").join(file))
+// TODO: Authentication
+#[get("/admin")]
+fn serve_admin() -> Result<content::Html<String>, error::Error> {
+    let template = render_admin(&context())?;
+    Ok(content::Html(template))
 }
 
 #[get("/index")]
@@ -78,6 +80,7 @@ fn main() {
                create_article,
                serve_article,
                serve_index,
+               serve_admin,
         ])
         .mount("/static", StaticFiles::from("site"))
         .attach(Template::fairing())

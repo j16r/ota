@@ -23,6 +23,17 @@ fn handlebars() -> Handlebars {
     handlebars
 }
 
+pub fn render_admin<T>(context: &T) -> Result<String, Error>
+where
+    T: Serialize {
+
+    let mut buffer = String::new();
+    File::open("templates/admin.hbs")?.read_to_string(&mut buffer)?;
+
+    let handlebars = handlebars();
+    handlebars.render_template(&buffer, context).map_err(|e| e.into())
+}
+
 pub fn render_index<T>(context: &T) -> Result<String, Error>
 where
     T: Serialize {
