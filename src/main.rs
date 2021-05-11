@@ -15,8 +15,9 @@ mod articles;
 mod error;
 
 use rocket::{get, post, routes};
+use rocket::request::Form;
 use rocket::response::{Redirect, content, status::NotFound};
-use rocket_contrib::{templates::Template, serve::StaticFiles, json::Json};
+use rocket_contrib::{templates::Template, serve::StaticFiles};
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use serde_derive::Serialize;
@@ -24,9 +25,14 @@ use serde_derive::Serialize;
 use crate::articles::{Article, NewArticleRequest, create};
 use crate::templates::{render, render_index, render_admin};
 
-#[post("/articles", format = "application/json", data = "<article>")]
-fn create_article(article: Json<NewArticleRequest>) -> std::io::Result<()> {
-    create(Article::new(&article))
+#[post("/articles", data = "<article>")]
+fn create_article(article: Form<NewArticleRequest>) -> Result<content::Html<String>, error::Error> {
+    let mut ctx = context();
+    if let Err(e) = create(Article::new(&article)) {
+        ctx.flash = Some("Error creating article".into());
+    }
+    let template = render_admin(&ctx)?;
+    Ok(content::Html(template))
 }
 
 #[get("/")]
@@ -36,27 +42,34 @@ fn redirect_to_root() -> Redirect {
 
 #[get("/articles/<path..>")]
 fn serve_article(path: PathBuf) -> Result<content::Html<String>, NotFound<String>> {
+    dbg!("45");
     let article_query = match path.to_str() {
         Some(v) => v,
         None => return Err(NotFound("".to_string()))
     };
+    dbg!("50");
     match render(&article_query, &context()) {
         Ok(t) => Ok(content::Html(t)),
         Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => {
             Err(NotFound(format!("article not found for query: {:?}", article_query)))
         },
-        Err(e) => panic!("error serving {:?}", e)
+        Err(e) => {
+            dbg!(&e);
+            panic!("error serving {:?}", e)
+        },
     }
 }
 
 #[derive(Serialize)]
 struct IndexContext {
     debug: bool,
+    flash: Option<String>,
 }
 
 fn context() -> IndexContext {
     IndexContext{
         debug: true,
+        flash: None,
     }
 }
 

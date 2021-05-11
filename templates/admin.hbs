@@ -9,6 +9,7 @@
     <link href="/static/admin.css" rel="stylesheet" type="text/css"/>
   </head>
   <div class="admin">
+    {{ _flash "" }}
     <form method="post" action="/articles">
         <label for="title">Title:</label>
         <input type="text" name="title" id="title">{{ _admin_article_title "" }} </input>

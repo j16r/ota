@@ -9,6 +9,9 @@ use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::iter;
 use rand::Rng;
+
+
+use rocket::request::FromForm;
 use serde_derive::{Serialize, Deserialize};
 
 type PropertySet = HashMap<String, String>;
@@ -36,13 +39,13 @@ impl Article {
             id: request.id.clone(),
             ..Default::default()
         };
-        if let Some(ref properties) = request.properties {
-            article.properties = properties.clone();
-        }
+        //if let Some(ref properties) = request.properties {
+            //article.properties = properties.clone();
+        //}
         Article::add_default_properties(&mut article.properties);
-        if let Some(ref tags) = request.tags {
-            article.tags = tags.clone();
-        }
+        //if let Some(ref tags) = request.tags {
+            //article.tags = tags.clone();
+        //}
         article
     }
 
@@ -66,12 +69,12 @@ impl Article {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, FromForm, Debug)]
 pub struct NewArticleRequest {
     pub body: String,
     pub id: Option<String>,
-    pub properties: Option<PropertySet>,
-    pub tags: Option<HashSet<String>>
+    pub properties: String,
+    pub tags: String,
 }
 
 fn article_file_name<'a>(path: &'a str) -> Cow<'a, str> {

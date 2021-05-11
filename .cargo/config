@@ -1,0 +1,4 @@
+[profile.dev]
+split-debuginfo = 'unpacked'
+[profile.test]
+split-debuginfo = 'unpacked'

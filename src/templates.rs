@@ -1,6 +1,7 @@
-use handlebars::{Handlebars, handlebars_helper};
+use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper};
 use std::io::prelude::*;
 use serde::Serialize;
+use serde_json::value::Value;
 use std::fs::File;
 
 use crate::articles::{lookup_article, lookup_articles};
@@ -14,12 +15,35 @@ handlebars_helper!(articles_helper: |expression: str| render_collection(expressi
 
 handlebars_helper!(hex_helper: |v: i64| format!("0x{:x}", v));
 
+fn flash_helper(h: &Helper, _: &Handlebars, context: &Context, rc: &mut RenderContext, out: &mut Output) -> HelperResult {
+    if let Some(Value::String(text)) = context.data().get("flash") {
+        out.write(text)?;
+    }
+    Ok(())
+}
+
+// TODO: needs to safely format html, doesn't need a param
+fn admin_article_title_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut Output) -> HelperResult {
+   Ok(())
+}
+fn admin_article_body_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut Output) -> HelperResult {
+   Ok(())
+}
+
 fn handlebars() -> Handlebars {
     let mut handlebars = Handlebars::new();
     handlebars.set_strict_mode(true);
+
+    // User helpers
     handlebars.register_helper("hex", Box::new(hex_helper));
     handlebars.register_helper("article", Box::new(article_helper));
     handlebars.register_helper("articles", Box::new(articles_helper));
+
+    // Internal helpers
+    handlebars.register_helper("_flash", Box::new(flash_helper));
+    handlebars.register_helper("_admin_article_title", Box::new(admin_article_title_helper));
+    handlebars.register_helper("_admin_article_body", Box::new(admin_article_body_helper));
+
     handlebars
 }
 
@@ -74,4 +98,45 @@ where
 
     let handlebars = handlebars();
     handlebars.render_template(&buffer, context).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::context;
+    use crate::templates::*;
+
+    #[test]
+    fn test_render_admin() {
+        let output = render_admin(&context()).unwrap();
+        assert_eq!(r#"<!doctype html>
+<html lang="en" style="height: 100%">
+  <head>
+    <meta charset="utf-8">
+    <title>ota</title>
+    <meta name="description" content="ota">
+    <link href="/static/reset.css" rel="stylesheet" type="text/css"/>
+    <link href="/static/intro.css" rel="stylesheet" type="text/css"/>
+    <link href="/static/admin.css" rel="stylesheet" type="text/css"/>
+  </head>
+  <div class="admin">
+    
+    <form method="post" action="/articles">
+        <label for="title">Title:</label>
+        <input type="text" name="title" id="title"> </input>
+        <br/>
+        <textarea rows=50>
+          
+        </textarea>
+        <br/>
+        <input type="submit" value="Save"/>
+        <input type="hidden" name="properties">
+        </input>
+        <input type="hidden" name="tags">
+        </input>
+    </form>
+  </div>
+  
+</html>
+"#, output);
+    }
 }
