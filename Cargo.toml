@@ -7,19 +7,14 @@ edition = "2018"
 [features]
 
 [dependencies]
-handlebars = "1.0"
+handlebars = "3"
 rand = "0.6"
 regex = "1.0.1"
-rocket = "0.4.0"
-rocket_codegen = "0.4.0"
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-
-[dependencies.rocket_contrib]
-version = "*"
-default-features = false
-features = ["handlebars_templates", "json", "serve"]
+rocket = "0.5.0-rc"
+rocket_codegen = "0.5.0-rc"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
 
 [dependencies.chrono]
 version = "0.4"

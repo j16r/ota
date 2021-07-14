@@ -1,17 +1,16 @@
-use chrono::prelude::*;
-use regex::Regex;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::{File, create_dir_all, read_dir, ReadDir};
 use std::io::prelude::*;
 use std::io::{self, ErrorKind};
-use std::path::{Path, PathBuf};
 use std::iter;
+use std::path::{Path, PathBuf};
+
+use chrono::prelude::*;
 use rand::Rng;
-
-
-use rocket::request::FromForm;
+use regex::Regex;
+use rocket::form::FromForm;
 use serde_derive::{Serialize, Deserialize};
 
 type PropertySet = HashMap<String, String>;
@@ -157,6 +156,7 @@ fn create_index_entry(destination: &Path, location: &Path) -> std::io::Result<()
 }
 
 pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
+//Result<String, std::io::Error> {
     println!("lookup_article(query_str: {:?})", query_str);
     let query : Query = query_str.into();
 
@@ -169,6 +169,7 @@ pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
         Err(e) => return Err(e)
     };
     println!("using article {:?}", path);
+    // Ok(path.into_os_string().into_string().unwrap())
     File::open(path)
 }
 

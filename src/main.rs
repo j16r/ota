@@ -1,38 +1,27 @@
-#![feature(plugin)]
-#![feature(proc_macro_hygiene, decl_macro)]
-
-extern crate handlebars;
-extern crate rand;
-extern crate regex;
-extern crate rocket;
-extern crate rocket_contrib;
-extern crate serde_derive;
-extern crate serde;
-extern crate chrono;
-
 mod templates;
 mod articles;
 mod error;
 
-use rocket::{get, post, routes};
-use rocket::request::Form;
-use rocket::response::{Redirect, content, status::NotFound};
-use rocket_contrib::{templates::Template, serve::StaticFiles};
 use std::io::ErrorKind;
 use std::path::PathBuf;
+
+use rocket::form::Form;
+use rocket::response::{Redirect, status::NotFound, content::Html};
+use rocket::{get, post, routes, launch};
+use rocket::fs::{FileServer, relative};
 use serde_derive::Serialize;
 
 use crate::articles::{Article, NewArticleRequest, create};
-use crate::templates::{render, render_index, render_admin};
+use crate::templates::{handlebars, render, render_index, render_admin};
 
 #[post("/articles", data = "<article>")]
-fn create_article(article: Form<NewArticleRequest>) -> Result<content::Html<String>, error::Error> {
-    let mut ctx = context();
+fn create_article(article: Form<NewArticleRequest>) -> Result<Html<String>, error::Error> {
+    let mut ctx = IndexContext::default();
     if let Err(e) = create(Article::new(&article)) {
         ctx.flash = Some("Error creating article".into());
     }
     let template = render_admin(&ctx)?;
-    Ok(content::Html(template))
+    Ok(Html(template))
 }
 
 #[get("/")]
@@ -41,15 +30,16 @@ fn redirect_to_root() -> Redirect {
 }
 
 #[get("/articles/<path..>")]
-fn serve_article(path: PathBuf) -> Result<content::Html<String>, NotFound<String>> {
+fn serve_article(path: PathBuf) -> Result<Html<String>, NotFound<String>> {
     dbg!("45");
     let article_query = match path.to_str() {
         Some(v) => v,
         None => return Err(NotFound("".to_string()))
     };
     dbg!("50");
-    match render(&article_query, &context()) {
-        Ok(t) => Ok(content::Html(t)),
+    let ctx = IndexContext::default();
+    match render(&article_query, &ctx) {
+        Ok(t) => Ok(Html(t)),
         Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => {
             Err(NotFound(format!("article not found for query: {:?}", article_query)))
         },
@@ -60,34 +50,30 @@ fn serve_article(path: PathBuf) -> Result<content::Html<String>, NotFound<String
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 struct IndexContext {
     debug: bool,
     flash: Option<String>,
 }
 
-fn context() -> IndexContext {
-    IndexContext{
-        debug: true,
-        flash: None,
-    }
-}
-
 // TODO: Authentication
 #[get("/admin")]
-fn serve_admin() -> Result<content::Html<String>, error::Error> {
-    let template = render_admin(&context())?;
-    Ok(content::Html(template))
+fn serve_admin() -> Result<Html<String>, error::Error> {
+    let ctx = IndexContext::default();
+    let template = render_admin(&ctx)?;
+    Ok(Html(template))
 }
 
 #[get("/index")]
-fn serve_index() -> Result<content::Html<String>, error::Error> {
-    let template = render_index(&context())?;
-    Ok(content::Html(template))
+fn serve_index() -> Result<Html<String>, error::Error> {
+    let ctx = IndexContext::default();
+    let template = render_index(&ctx)?;
+    Ok(Html(template))
 }
 
-fn main() {
-    rocket::ignite()
+#[launch]
+fn server() -> _ {
+    rocket::build()
         .mount("/", routes![
                redirect_to_root,
                create_article,
@@ -95,7 +81,6 @@ fn main() {
                serve_index,
                serve_admin,
         ])
-        .mount("/static", StaticFiles::from("site"))
-        .attach(Template::fairing())
-        .launch();
+        .mount("/static", FileServer::from(relative!("site")))
+        .manage(handlebars())
 }

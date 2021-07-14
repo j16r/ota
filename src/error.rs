@@ -21,8 +21,8 @@ pub enum Error {
     TemplateRenderError(handlebars::TemplateRenderError),
 }
 
-impl Responder<'static> for Error {
-    fn respond_to(self, _: &Request) -> Result<Response<'static>, Status> {
+impl<'r> Responder<'r, 'static> for Error {
+    fn respond_to(self, _: &'r Request<'_>) -> Result<Response<'static>, Status> {
         let mut response = Response::build();
         match self {
             Error::IoError(ref e) if e.kind() == ErrorKind::NotFound => {

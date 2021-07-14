@@ -15,7 +15,7 @@ handlebars_helper!(articles_helper: |expression: str| render_collection(expressi
 
 handlebars_helper!(hex_helper: |v: i64| format!("0x{:x}", v));
 
-fn flash_helper(h: &Helper, _: &Handlebars, context: &Context, rc: &mut RenderContext, out: &mut Output) -> HelperResult {
+fn flash_helper(h: &Helper, _: &Handlebars, context: &Context, rc: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
     if let Some(Value::String(text)) = context.data().get("flash") {
         out.write(text)?;
     }
@@ -23,14 +23,14 @@ fn flash_helper(h: &Helper, _: &Handlebars, context: &Context, rc: &mut RenderCo
 }
 
 // TODO: needs to safely format html, doesn't need a param
-fn admin_article_title_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut Output) -> HelperResult {
+fn admin_article_title_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
    Ok(())
 }
-fn admin_article_body_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut Output) -> HelperResult {
+fn admin_article_body_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
    Ok(())
 }
 
-fn handlebars() -> Handlebars {
+pub fn handlebars() -> Handlebars<'static> {
     let mut handlebars = Handlebars::new();
     handlebars.set_strict_mode(true);
 
@@ -102,12 +102,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::context;
+    use crate::IndexContext;
     use crate::templates::*;
 
     #[test]
     fn test_render_admin() {
-        let output = render_admin(&context()).unwrap();
+        let output = render_admin(&IndexContext::default()).unwrap();
         assert_eq!(r#"<!doctype html>
 <html lang="en" style="height: 100%">
   <head>
