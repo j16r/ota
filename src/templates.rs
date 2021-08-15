@@ -1,4 +1,5 @@
-use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper};
+use std::io::Write;
+use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper, RenderError};
 use std::io::prelude::*;
 use serde::Serialize;
 use serde_json::value::Value;
@@ -8,7 +9,24 @@ use crate::articles::{lookup_article, lookup_articles};
 use crate::error::Error;
 
 // Provides a helper to embed an article in the current template
-handlebars_helper!(article_helper: |name: str| render_inline(name, &()));
+// handlebars_helper!(article_helper: |name: str| render_inline(name, &()));
+
+fn article_helper(
+    h: &Helper,
+    handlebars: &Handlebars,
+    ctx: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output) -> HelperResult {
+
+    let query = h.param(0).map(|v| v.value().as_str().unwrap()).unwrap();
+        // .map_err(|| RenderError::new("requires an article query"));
+    let mut buffer = String::new();
+
+    lookup_article(query)?.read_to_string(&mut buffer)?;
+
+    out.write(dbg!(handlebars.render_template(&buffer, &())).unwrap().as_ref())?;
+    Ok(())
+}
 
 // Articles returns all articles that match a pattern, can be used for pagination
 handlebars_helper!(articles_helper: |expression: str| render_collection(expression, &()));
@@ -72,6 +90,7 @@ where
 pub fn render_inline<T>(query: &str, context: &T) -> String
 where
     T: Serialize {
+    println!("render_inline");
     render(query, context).unwrap_or("".into())
 }
 
@@ -90,6 +109,7 @@ where
 pub fn render_collection<T>(query: &str, context: &T) -> String
 where
     T: Serialize {
+
     let mut buffer = String::new();
 
     for article in lookup_articles(&query).unwrap().iter_mut() {
