@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 
 [dependencies]
-handlebars = "3"
+handlebars = "4"
 rand = "0.6"
 regex = "1.0.1"
 rocket = "0.5.0-rc"

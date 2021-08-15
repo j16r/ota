@@ -1,5 +1,5 @@
-use rocket::response::{Responder};
-use rocket::request::{Request};
+use rocket::response::Responder;
+use rocket::request::Request;
 use rocket::{Response, http::Status};
 use std::io::ErrorKind;
 
@@ -18,7 +18,7 @@ macro_rules! impl_from_error {
 pub enum Error {
     IoError(std::io::Error),
     TemplateError(handlebars::TemplateError),
-    TemplateRenderError(handlebars::TemplateRenderError),
+    RenderError(handlebars::RenderError),
 }
 
 impl<'r> Responder<'r, 'static> for Error {
@@ -36,4 +36,4 @@ impl<'r> Responder<'r, 'static> for Error {
 
 impl_from_error!(std::io::Error, Error::IoError);
 impl_from_error!(handlebars::TemplateError, Error::TemplateError);
-impl_from_error!(handlebars::TemplateRenderError, Error::TemplateRenderError);
+impl_from_error!(handlebars::RenderError, Error::RenderError);

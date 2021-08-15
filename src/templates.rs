@@ -1,5 +1,4 @@
-use std::io::Write;
-use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper, RenderError};
+use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper};
 use std::io::prelude::*;
 use serde::Serialize;
 use serde_json::value::Value;
@@ -14,7 +13,7 @@ use crate::error::Error;
 fn article_helper(
     h: &Helper,
     handlebars: &Handlebars,
-    ctx: &Context,
+    _: &Context,
     _: &mut RenderContext,
     out: &mut dyn Output) -> HelperResult {
 
