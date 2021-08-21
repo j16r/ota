@@ -2,11 +2,14 @@
 
 ![build and test](https://github.com/j16r/ota/actions/workflows/rust.yml/badge.svg)
 
-This is intended to be a micro-blogging or wiki style framework where you
-are given a lot of freedom to produce content using some very basic
-primitives and simple procedures.
+Ota is a self contained web application that functions a little like a content
+management system with a low level templating language and content addressing
+query language.
 
-Goals:
+It is intended to be used for smaller sites as a blogging platform, or simple
+web shop.
+
+## Goals
 
  1. Self contained and easy to deploy.
  2. All changes are committed to local directory.
@@ -14,7 +17,7 @@ Goals:
  4. Basic authentication system.
  5. Very little structure.
 
-# Features
+## Walkthrough
 
 The root document in Ota is the index page, when you first load it, you get a
 default article with a splash screen and little else. Like the default nginx
