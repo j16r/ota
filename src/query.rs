@@ -1,21 +1,13 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use thiserror::Error;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Query {
     pub id: Option<String>,
     pub properties: Vec<PropertyFilter>,
     pub tags: Vec<String>
 }
-
-impl fmt::Debug for Query {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Query {{ id: {:?} }}", self.id)
-    }
-}
-
 
 #[derive(Debug, PartialEq)]
 pub struct PropertyFilter {

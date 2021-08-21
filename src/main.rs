@@ -1,7 +1,8 @@
 mod articles;
 mod error;
-mod templates;
+mod index;
 mod query;
+mod templates;
 
 use std::io::ErrorKind;
 use std::path::PathBuf;
