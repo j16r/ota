@@ -6,8 +6,8 @@ Ota is a self contained web application that functions a little like a content
 management system with a low level templating language and content addressing
 query language.
 
-It is intended to be used for smaller sites as a blogging platform, or simple
-web shop.
+It is intended to be used for smaller sites such as a blogging platform, or a small
+store.
 
 ## Goals
 
