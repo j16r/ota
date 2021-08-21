@@ -160,7 +160,7 @@ mod tests {
         <label for="title">Title:</label>
         <input type="text" name="title" id="title"> </input>
         <br/>
-        <textarea rows=50>
+        <textarea rows=50 name="body">
           
         </textarea>
         <br/>
