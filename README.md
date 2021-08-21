@@ -1,5 +1,7 @@
 # Ota
 
+![build and test](https://github.com/j16r/ota/actions/workflows/rust.yml/badge.svg)
+
 This is intended to be a micro-blogging or wiki style framework where you
 are given a lot of freedom to produce content using some very basic
 primitives and simple procedures.
