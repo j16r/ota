@@ -221,7 +221,7 @@ enum PropertyFilter {
 
 impl<'a> From<&'a str> for Query {
     fn from(query: &'a str) -> Self {
-        let mut result = Query{id: None, properties: Vec::new(), tags: Vec::new()};
+        let mut result = Query::default();
 
         for capture in query.split(" ") {
             if capture.starts_with("@") {

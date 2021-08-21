@@ -1,4 +1,4 @@
-use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper};
+use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper, RenderError};
 use std::io::prelude::*;
 use serde::Serialize;
 use serde_json::value::Value;
@@ -8,8 +8,6 @@ use crate::articles::{lookup_article, lookup_articles};
 use crate::error::Error;
 
 // Provides a helper to embed an article in the current template
-// handlebars_helper!(article_helper: |name: str| render_inline(name, &()));
-
 fn article_helper(
     h: &Helper,
     handlebars: &Handlebars,
@@ -17,33 +15,53 @@ fn article_helper(
     _: &mut RenderContext,
     out: &mut dyn Output) -> HelperResult {
 
-    let query = h.param(0).map(|v| v.value().as_str().unwrap()).unwrap();
-        // .map_err(|| RenderError::new("requires an article query"));
+    let query = h.param(0).map(|v| v.value().as_str().unwrap())
+        .ok_or(RenderError::new("requires an article query"))?;
     let mut buffer = String::new();
 
     lookup_article(query)?.read_to_string(&mut buffer)?;
 
-    out.write(dbg!(handlebars.render_template(&buffer, &())).unwrap().as_ref())?;
+    out.write(dbg!(handlebars.render_template(&buffer, &()))?.as_ref())?;
     Ok(())
 }
 
 // Articles returns all articles that match a pattern, can be used for pagination
-handlebars_helper!(articles_helper: |expression: str| render_collection(expression, &()));
+// handlebars_helper!(articles_helper: |expression: str| render_collection(expression, &()));
+fn articles_helper(
+    h: &Helper,
+    handlebars: &Handlebars,
+    _: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output) -> HelperResult {
+
+    let query = h.param(0).map(|v| v.value().as_str().unwrap())
+        .ok_or(RenderError::new("requires an article query"))?;
+
+    for article in lookup_articles(&query).unwrap().iter_mut() {
+        let mut buffer = String::new();
+        article.read_to_string(&mut buffer).unwrap();
+        out.write(dbg!(handlebars.render_template(&buffer, &()))?.as_ref())?;
+    }
+
+    Ok(())
+}
 
 handlebars_helper!(hex_helper: |v: i64| format!("0x{:x}", v));
 
-fn flash_helper(h: &Helper, _: &Handlebars, context: &Context, rc: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+fn flash_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
     if let Some(Value::String(text)) = context.data().get("flash") {
+        out.write(r#"<p class="_flash"`>"#)?;
         out.write(text)?;
+        out.write(r#"</p>"#)?;
     }
     Ok(())
 }
 
 // TODO: needs to safely format html, doesn't need a param
-fn admin_article_title_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+fn admin_article_title_helper(_: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, _: &mut dyn Output) -> HelperResult {
    Ok(())
 }
-fn admin_article_body_helper(h: &Helper, _: &Handlebars, _: &Context, rc: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+fn admin_article_body_helper(_: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, _: &mut dyn Output) -> HelperResult {
    Ok(())
 }
 
@@ -89,7 +107,6 @@ where
 pub fn render_inline<T>(query: &str, context: &T) -> String
 where
     T: Serialize {
-    println!("render_inline");
     render(query, context).unwrap_or("".into())
 }
 

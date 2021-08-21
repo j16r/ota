@@ -31,12 +31,10 @@ fn redirect_to_root() -> Redirect {
 
 #[get("/articles/<path..>")]
 fn serve_article(path: PathBuf) -> Result<Html<String>, NotFound<String>> {
-    dbg!("45");
     let article_query = match path.to_str() {
         Some(v) => v,
         None => return Err(NotFound("".to_string()))
     };
-    dbg!("50");
     let ctx = IndexContext::default();
     match render(&article_query, &ctx) {
         Ok(t) => Ok(Html(t)),
@@ -44,13 +42,12 @@ fn serve_article(path: PathBuf) -> Result<Html<String>, NotFound<String>> {
             Err(NotFound(format!("article not found for query: {:?}", article_query)))
         },
         Err(e) => {
-            dbg!(&e);
             panic!("error serving {:?}", e)
         },
     }
 }
 
-#[derive(Serialize, Default)]
+#[derive(Serialize, Debug, Default)]
 struct IndexContext {
     debug: bool,
     flash: Option<String>,
