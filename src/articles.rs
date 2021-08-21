@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::fs::{File, create_dir_all, read_dir, ReadDir};
 use std::io::prelude::*;
@@ -7,11 +8,13 @@ use std::io::{self, ErrorKind};
 use std::iter;
 use std::path::{Path, PathBuf};
 
+// use anyhow::Result;
 use chrono::prelude::*;
 use rand::Rng;
 use regex::Regex;
 use rocket::form::FromForm;
 use serde_derive::{Serialize, Deserialize};
+use thiserror::Error;
 
 type PropertySet = HashMap<String, String>;
 
@@ -156,9 +159,8 @@ fn create_index_entry(destination: &Path, location: &Path) -> std::io::Result<()
 }
 
 pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
-//Result<String, std::io::Error> {
     println!("lookup_article(query_str: {:?})", query_str);
-    let query : Query = query_str.into();
+    let query : Query = query_str.try_into().unwrap();
 
     let path = match find_first_matching_path(&query) {
         Ok(r) => r,
@@ -213,15 +215,35 @@ impl fmt::Debug for Query {
 }
 
 
-enum PropertyFilter {
+#[derive(Debug, PartialEq)]
+struct PropertyFilter {
+    field: String,
+    operator: PropertyOperator
+}
+
+#[derive(Debug, PartialEq)]
+enum PropertyOperator {
     Equals(String),
     Lt(String),
     Gt(String)
 }
 
-impl<'a> From<&'a str> for Query {
-    fn from(query: &'a str) -> Self {
+#[derive(Error, Debug, PartialEq)]
+pub enum QueryParseError {
+    #[error("missing right hand side of property filter")]
+    MissingOperatorArgument,
+    #[error("missing left hand side of property filter")]
+    MissingOperatorField,
+    #[error("duplicate id filter")]
+    DuplicateID,
+}
+
+impl<'a> TryFrom<&'a str> for Query {
+    type Error = QueryParseError;
+
+    fn try_from(query: &'a str) -> Result<Self, Self::Error> {
         let mut result = Query::default();
+        let operators: &[_] = &['=', '<', '>'];
 
         for capture in query.split(" ") {
             if capture.starts_with("@") {
@@ -229,14 +251,35 @@ impl<'a> From<&'a str> for Query {
                 if result.id == None {
                     result.id = Some(id.into());
                 } else {
-                    panic!("duplicate id in query string");
+                    return Err(QueryParseError::DuplicateID)
                 }
+
+            } else if let Some(pos) = capture.find(operators) {
+                let (field, operator_and_arg) = capture.split_at(pos);
+
+                if field.len() < 1 {
+                    return Err(QueryParseError::MissingOperatorArgument);
+                } else if operator_and_arg.len() < 2 {
+                    return Err(QueryParseError::MissingOperatorField);
+                }
+
+                let (operator, argument) = operator_and_arg.split_at(1);
+                result.properties.push(PropertyFilter{
+                    field: field.to_string(),
+                    operator: match operator {
+                        "=" => PropertyOperator::Equals(argument.to_string()),
+                        ">" => PropertyOperator::Gt(argument.to_string()),
+                        "<" => PropertyOperator::Lt(argument.to_string()),
+                        _ => unreachable!(),
+                    }
+                });
+
             } else {
                 result.tags.push(capture.into());
             }
         }
 
-        result
+        Ok(result)
     }
 }
 
@@ -309,6 +352,7 @@ impl Index for DirectoryIndex {
     }
 }
 
+// scan_articles walks the index and finds every file path that matches
 fn scan_articles<I>(query: &Query, index: &mut I) -> std::io::Result<Vec<PathBuf>>
     where I: Index {
     let mut matches : Vec<PathBuf> = Vec::new();
@@ -335,6 +379,7 @@ fn scan_articles<I>(query: &Query, index: &mut I) -> std::io::Result<Vec<PathBuf
 #[cfg(test)]
 mod tests {
     use crate::articles::*;
+    use std::convert::TryInto;
 
     #[test]
     fn test_article_file_name() {
@@ -347,14 +392,36 @@ mod tests {
     #[test]
     fn test_query_from_str() {
         let mut query : Query;
-        query = "@index".into();
+        query = "@index".try_into().unwrap();
         assert_eq!(query.id, Some("index".to_string()));
 
-        query = "tag".into();
+        query = "tag".try_into().unwrap();
         assert_eq!(query.tags, vec!["tag".to_string()]);
 
-        query = "tag1 tag2".into();
+        query = "tag1 tag2".try_into().unwrap();
         assert_eq!(query.tags, vec!["tag1".to_string(), "tag2".to_string()]);
+
+        query = "count=1".try_into().unwrap();
+        assert_eq!(query.properties, vec![PropertyFilter{
+            field: "count".to_string(),
+            operator: PropertyOperator::Equals("1".to_string()),
+        }]);
+    }
+
+    #[test]
+    fn test_query_from_str_invalid() {
+        let mut query: Result<Query, _>;
+        query = "@index @index".try_into();
+        assert!(query.is_err());
+        assert_eq!(query.unwrap_err(), QueryParseError::DuplicateID);
+
+        query = "count=".try_into();
+        assert!(query.is_err());
+        assert_eq!(query.unwrap_err(), QueryParseError::MissingOperatorField);
+
+        query = "=".try_into();
+        assert!(query.is_err());
+        assert_eq!(query.unwrap_err(), QueryParseError::MissingOperatorArgument);
     }
 
     struct TestIndex {}
@@ -374,6 +441,6 @@ mod tests {
         let mut index = TestIndex{};
 
         let result : Vec<PathBuf> = vec!["index".into()];
-        assert_eq!(scan_articles(&"@index".into(), &mut index).unwrap(), result);
+        assert_eq!(scan_articles(&"@index".try_into().unwrap(), &mut index).unwrap(), result);
     }
 }
