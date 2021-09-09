@@ -36,6 +36,13 @@ fn index_reader(path: &str) -> std::io::Result<DirectoryIndex> {
 }
 
 // FIXME: I've forgotten how I intended to use this, but I suspect it needed more thought
+// directory index stores a bunch of reverse indexes using a trie like structure for search
+// index/
+//   properties/
+//   tags/
+// articles/
+//  trie-based-on-name/
+//
 impl Index for DirectoryIndex {
     fn from(&self, entry: &Entry) -> Self {
         if let Entry::Branch(branch) = entry {
@@ -76,9 +83,9 @@ impl Index for DirectoryIndex {
     }
 }
 
-pub fn update_index(article: Article, location: &Path) -> std::io::Result<()> {
+pub fn update_index(article: &Article, location: &Path) -> std::io::Result<()> {
     println!("update_index({:?}, {:?})", article, location);
-    if let Some(id) = article.id {
+    if let Some(id) = &article.id {
         return update_index_id(&id, location, Path::new("data/index/"));
     }
 

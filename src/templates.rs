@@ -57,12 +57,18 @@ fn flash_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderCon
     Ok(())
 }
 
-// TODO: needs to safely format html, doesn't need a param
-fn admin_article_title_helper(_: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, _: &mut dyn Output) -> HelperResult {
-   Ok(())
+fn admin_article_title_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    if let Value::String(ref text) = context.data()["article"]["title"] {
+        out.write(&handlebars::html_escape(&text))?;
+    }
+    Ok(())
 }
-fn admin_article_body_helper(_: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, _: &mut dyn Output) -> HelperResult {
-   Ok(())
+
+fn admin_article_body_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    if let Value::String(ref text) = context.data()["article"]["body"] {
+        out.write(&handlebars::html_escape(text))?;
+    }
+    Ok(())
 }
 
 pub fn handlebars() -> Handlebars<'static> {
@@ -158,7 +164,7 @@ mod tests {
     
     <form method="post" action="/articles">
         <label for="title">Title:</label>
-        <input type="text" name="title" id="title"> </input>
+        <input type="text" name="title" id="title" value=""/>
         <br/>
         <textarea rows=50 name="body">
           

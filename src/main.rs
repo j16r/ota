@@ -16,11 +16,14 @@ use serde_derive::Serialize;
 use crate::articles::{Article, NewArticleRequest, create};
 use crate::templates::{handlebars, render, render_index, render_admin};
 
-#[post("/articles", data = "<article>")]
-fn create_article(article: Form<NewArticleRequest>) -> Result<Html<String>, error::Error> {
+#[post("/articles", data = "<article_request>")]
+fn create_article(article_request: Form<NewArticleRequest>) -> Result<Html<String>, error::Error> {
     let mut ctx = IndexContext::default();
-    if let Err(e) = create(Article::new(&article)) {
+    let article = Article::new(&article_request);
+    if let Err(_) = create(&article) {
         ctx.flash = Some("Error creating article".into());
+    } else {
+        ctx.article = Some(article);
     }
     let template = render_admin(&ctx)?;
     Ok(Html(template))
@@ -53,6 +56,7 @@ fn serve_article(path: PathBuf) -> Result<Html<String>, NotFound<String>> {
 struct IndexContext {
     debug: bool,
     flash: Option<String>,
+    article: Option<Article>,
 }
 
 // TODO: Authentication

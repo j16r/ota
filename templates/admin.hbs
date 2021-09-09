@@ -12,7 +12,7 @@
     {{ _flash "" }}
     <form method="post" action="/articles">
         <label for="title">Title:</label>
-        <input type="text" name="title" id="title">{{ _admin_article_title "" }} </input>
+        <input type="text" name="title" id="title" value="{{ _admin_article_title "" }}"/>
         <br/>
         <textarea rows=50 name="body">
           {{ _admin_article_body "" }}

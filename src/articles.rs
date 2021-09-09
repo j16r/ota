@@ -21,6 +21,7 @@ type PropertySet = HashMap<String, String>;
 pub struct Article {
     pub id: Option<String>,
     name: String,
+    title: String,
     body: String,
     properties: PropertySet,
     tags: HashSet<String>
@@ -33,9 +34,10 @@ fn random_string() -> String {
 
 impl Article {
     pub fn new(request: &NewArticleRequest) -> Article {
-        let name = Article::generate_name(&request.body);
+        let name = Article::generate_name(&request.title);
         let mut article = Article{
             name,
+            title: request.title.clone(),
             body: request.body.clone(),
             id: request.id.clone(),
             ..Default::default()
@@ -72,6 +74,7 @@ impl Article {
 
 #[derive(Serialize, Deserialize, FromForm, Debug)]
 pub struct NewArticleRequest {
+    pub title: String,
     pub body: String,
     pub id: Option<String>,
     pub properties: String,
@@ -83,7 +86,7 @@ fn article_file_name<'a>(path: &'a str) -> Cow<'a, str> {
     article_filename_regex.replace_all(path, "_")
 }
 
-pub fn create(article: Article) -> std::io::Result<()> {
+pub fn create(article: &Article) -> std::io::Result<()> {
     let now: DateTime<Utc> = Utc::now();
 
     // TODO: path is full we wanna clip off the article here
@@ -98,7 +101,7 @@ pub fn create(article: Article) -> std::io::Result<()> {
     let mut file = File::create(path)?;
     file.write_all(article.body.as_bytes())?;
 
-    update_index(article, path)?;
+    update_index(&article, path)?;
 
     Ok(())
 }
