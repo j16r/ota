@@ -58,26 +58,23 @@ impl Index for DirectoryIndex {
 
     fn find_matches(&mut self, query: &Query) -> std::io::Result<Vec<Entry>> {
         let mut matches: Vec<Entry> = Vec::new();
-        match self.reader.next() {
-            Some(entry) => {
-                if let Some(ref id) = query.id {
-                    let path = entry.unwrap().path();
-                    if path.is_dir() {
-                        let path_str = path.to_str().unwrap();
-                        if path == path {
-                            // TODO: scan for latest file
-                            let mut file = File::open(path.join("0"))?;
-                            let mut buffer = String::new();
-                            file.read_to_string(&mut buffer)?;
+        if let Some(entry) =  self.reader.next() {
+            if let Some(ref id) = query.id {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    let path_str = path.to_str().unwrap();
+                    if path_str == id {
+                        // TODO: scan for latest file
+                        let mut file = File::open(path.join("0"))?;
+                        let mut buffer = String::new();
+                        file.read_to_string(&mut buffer)?;
 
-                            matches.push(Entry::Article(buffer.into()));
-                        } else if id.starts_with(path_str) {
-                            matches.push(Entry::Branch(path_str.into()));
-                        }
+                        matches.push(Entry::Article(buffer.into()));
+                    } else if id.starts_with(path_str) {
+                        matches.push(Entry::Branch(path_str.into()));
                     }
                 }
             }
-            _ => (),
         }
         Ok(matches)
     }

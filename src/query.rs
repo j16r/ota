@@ -39,9 +39,8 @@ impl<'a> TryFrom<&'a str> for Query {
         let mut result = Query::default();
         let operators: &[_] = &['=', '<', '>'];
 
-        for capture in query.split(" ") {
-            if capture.starts_with("@") {
-                let id = &capture[1..];
+        for capture in query.split_whitespace() {
+            if let Some(id) = capture.strip_prefix("@") {
                 if result.id == None {
                     result.id = Some(id.into());
                 } else {
@@ -50,7 +49,7 @@ impl<'a> TryFrom<&'a str> for Query {
             } else if let Some(pos) = capture.find(operators) {
                 let (field, operator_and_arg) = capture.split_at(pos);
 
-                if field.len() < 1 {
+                if field.is_empty() {
                     return Err(QueryParseError::MissingOperatorArgument);
                 } else if operator_and_arg.len() < 2 {
                     return Err(QueryParseError::MissingOperatorField);

@@ -20,7 +20,7 @@ use crate::templates::{handlebars, render, render_admin, render_index};
 fn create_article(article_request: Form<NewArticleRequest>) -> Result<Html<String>, error::Error> {
     let mut ctx = IndexContext::default();
     let article = Article::new(&article_request);
-    if let Err(_) = create(&article) {
+    if create(&article).is_err() {
         ctx.flash = Some("Error creating article".into());
     } else {
         ctx.article = Some(article);

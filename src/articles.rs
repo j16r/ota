@@ -83,7 +83,7 @@ pub struct NewArticleRequest {
     pub tags: String,
 }
 
-fn article_file_name<'a>(path: &'a str) -> Cow<'a, str> {
+fn article_file_name(path: &str) -> Cow<str> {
     let article_filename_regex = Regex::new(r"[^A-Za-z0-9]+").unwrap();
     article_filename_regex.replace_all(path, "_")
 }
@@ -129,10 +129,9 @@ pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
 fn load_fallback(query: &Query) -> std::io::Result<PathBuf> {
     if let Some(ref id) = query.id {
         println!("query#id = {:?}", id);
-        Ok(Path::new("templates/").join(format!("{}.hbs", id)))
-    } else {
-        return Err(io::Error::new(ErrorKind::NotFound, "not found"));
+        return Ok(Path::new("templates/").join(format!("{}.hbs", id)))
     }
+    Err(io::Error::new(ErrorKind::NotFound, "not found"))
 }
 
 pub fn lookup_articles(_query: &str) -> std::io::Result<Vec<File>> {

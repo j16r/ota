@@ -21,7 +21,7 @@ fn article_helper(
     let query = h
         .param(0)
         .map(|v| v.value().as_str().unwrap())
-        .ok_or(RenderError::new("requires an article query"))?;
+        .ok_or_else(|| RenderError::new("requires an article query"))?;
     let mut buffer = String::new();
 
     lookup_article(query)?.read_to_string(&mut buffer)?;
@@ -42,7 +42,7 @@ fn articles_helper(
     let query = h
         .param(0)
         .map(|v| v.value().as_str().unwrap())
-        .ok_or(RenderError::new("requires an article query"))?;
+        .ok_or_else(|| RenderError::new("requires an article query"))?;
 
     for article in lookup_articles(&query).unwrap().iter_mut() {
         let mut buffer = String::new();
@@ -143,7 +143,7 @@ pub fn render_inline<T>(query: &str, context: &T) -> String
 where
     T: Serialize,
 {
-    render(query, context).unwrap_or("".into())
+    render(query, context).unwrap_or_default()
 }
 
 pub fn render<T>(query: &str, context: &T) -> Result<String, Error>
