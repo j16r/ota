@@ -1,4 +1,4 @@
-use std::fs::{create_dir_all, File, read_dir, ReadDir};
+use std::fs::{create_dir_all, read_dir, File, ReadDir};
 use std::io::prelude::*;
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
@@ -12,9 +12,9 @@ trait Index {
 }
 
 enum Key {
-    ID{id: String},
-    Property{key: String, value: String},
-    Tag{name: String}
+    ID { id: String },
+    Property { key: String, value: String },
+    Tag { name: String },
 }
 
 enum Entry {
@@ -24,12 +24,12 @@ enum Entry {
 
 struct DirectoryIndex {
     path: PathBuf,
-    reader: ReadDir
+    reader: ReadDir,
 }
 
 fn index_reader(path: &str) -> std::io::Result<DirectoryIndex> {
     let path_buf = Path::new(path).to_path_buf();
-    Ok(DirectoryIndex{
+    Ok(DirectoryIndex {
         path: path_buf.clone(),
         reader: read_dir(path_buf)?,
     })
@@ -47,7 +47,7 @@ impl Index for DirectoryIndex {
     fn from(&self, entry: &Entry) -> Self {
         if let Entry::Branch(branch) = entry {
             let path_buf = self.path.join(branch);
-            DirectoryIndex{
+            DirectoryIndex {
                 path: path_buf.clone(),
                 reader: read_dir(path_buf).unwrap(),
             }
@@ -57,7 +57,7 @@ impl Index for DirectoryIndex {
     }
 
     fn find_matches(&mut self, query: &Query) -> std::io::Result<Vec<Entry>> {
-        let mut matches : Vec<Entry> = Vec::new();
+        let mut matches: Vec<Entry> = Vec::new();
         match self.reader.next() {
             Some(entry) => {
                 if let Some(ref id) = query.id {
@@ -76,7 +76,7 @@ impl Index for DirectoryIndex {
                         }
                     }
                 }
-            },
+            }
             _ => (),
         }
         Ok(matches)
@@ -93,7 +93,10 @@ pub fn update_index(article: &Article, location: &Path) -> std::io::Result<()> {
 }
 
 fn update_index_id(segment: &str, location: &Path, search_path: &Path) -> std::io::Result<()> {
-    println!("update_index_id({:?}, {:?}, {:?})", segment, location, search_path);
+    println!(
+        "update_index_id({:?}, {:?}, {:?})",
+        segment, location, search_path
+    );
 
     let reader = read_dir(search_path)?;
     for entry in reader {
@@ -106,19 +109,16 @@ fn update_index_id(segment: &str, location: &Path, search_path: &Path) -> std::i
 
                 // TODO: an article already exists, should we preserve an index to it somehow?
                 return create_index_entry(&path, location);
-
             } else if path_str.starts_with(segment) {
                 println!("collision");
                 // collision
-
             } else if segment.starts_with(path_str) {
                 println!("segment match");
                 let segment = segment.get(path_str.len()..).unwrap();
                 return update_index_id(segment, location, &path);
-
             } else {
                 println!("no match");
-                break
+                break;
             }
         }
     }
@@ -129,7 +129,10 @@ fn update_index_id(segment: &str, location: &Path, search_path: &Path) -> std::i
 }
 
 fn create_index_entry(destination: &Path, location: &Path) -> std::io::Result<()> {
-    println!("creating index at {:?} for location {:?}", destination, location);
+    println!(
+        "creating index at {:?} for location {:?}",
+        destination, location
+    );
 
     create_dir_all(&destination)?;
 
@@ -137,30 +140,31 @@ fn create_index_entry(destination: &Path, location: &Path) -> std::io::Result<()
     file.write_all(location.to_str().unwrap().as_bytes())
 }
 
-
 pub fn find_first_matching_path(query: &Query) -> std::io::Result<PathBuf> {
-    scan_articles(&query, &mut index_reader("data/index")?)
-        .and_then(|mut scanner| {
-            scanner.pop().ok_or_else(|| io::Error::new(ErrorKind::NotFound, "not found"))
-        })
+    scan_articles(&query, &mut index_reader("data/index")?).and_then(|mut scanner| {
+        scanner
+            .pop()
+            .ok_or_else(|| io::Error::new(ErrorKind::NotFound, "not found"))
+    })
 }
 
 // scan_articles walks the index and finds every file path that matches
 fn scan_articles<I>(query: &Query, index: &mut I) -> std::io::Result<Vec<PathBuf>>
-    where I: Index {
-    let mut matches : Vec<PathBuf> = Vec::new();
+where
+    I: Index,
+{
+    let mut matches: Vec<PathBuf> = Vec::new();
     if let Some(ref id) = query.id {
         for entry in index.find_matches(query)?.iter() {
             match entry {
                 Entry::Article(path) => matches.push(path.into()),
                 Entry::Branch(branch) => {
                     let new_id = id.get(branch.len()..).unwrap();
-                    let new_query = Query{
+                    let new_query = Query {
                         id: Some(new_id.to_string()),
                         ..Default::default()
                     };
-                    matches.append(
-                        &mut scan_articles(&new_query, &mut index.from(entry))?.clone());
+                    matches.append(&mut scan_articles(&new_query, &mut index.from(entry))?.clone());
                 }
             }
         }
@@ -177,7 +181,7 @@ mod tests {
 
     impl Index for TestIndex {
         fn from(&self, entry: &Entry) -> Self {
-            TestIndex{}
+            TestIndex {}
         }
 
         fn find_matches(&mut self, query: &Query) -> std::io::Result<Vec<Entry>> {
@@ -187,9 +191,12 @@ mod tests {
 
     #[test]
     fn test_lookup_article() {
-        let mut index = TestIndex{};
+        let mut index = TestIndex {};
 
-        let result : Vec<PathBuf> = vec!["index".into()];
-        assert_eq!(scan_articles(&"@index".try_into().unwrap(), &mut index).unwrap(), result);
+        let result: Vec<PathBuf> = vec!["index".into()];
+        assert_eq!(
+            scan_articles(&"@index".try_into().unwrap(), &mut index).unwrap(),
+            result
+        );
     }
 }

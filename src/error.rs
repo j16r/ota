@@ -1,6 +1,6 @@
-use rocket::response::Responder;
 use rocket::request::Request;
-use rocket::{Response, http::Status};
+use rocket::response::Responder;
+use rocket::{http::Status, Response};
 use std::io::ErrorKind;
 
 #[macro_export]
@@ -27,8 +27,8 @@ impl<'r> Responder<'r, 'static> for Error {
         match self {
             Error::IoError(ref e) if e.kind() == ErrorKind::NotFound => {
                 response.status(Status::NotFound);
-            },
-            _ => return Err(Status::InternalServerError)
+            }
+            _ => return Err(Status::InternalServerError),
         };
         response.ok()
     }

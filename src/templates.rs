@@ -1,8 +1,11 @@
-use handlebars::{Handlebars, Helper, HelperResult, Context, RenderContext, Output, handlebars_helper, RenderError};
-use std::io::prelude::*;
+use handlebars::{
+    handlebars_helper, Context, Handlebars, Helper, HelperResult, Output, RenderContext,
+    RenderError,
+};
 use serde::Serialize;
 use serde_json::value::Value;
 use std::fs::File;
+use std::io::prelude::*;
 
 use crate::articles::{lookup_article, lookup_articles};
 use crate::error::Error;
@@ -13,9 +16,11 @@ fn article_helper(
     handlebars: &Handlebars,
     _: &Context,
     _: &mut RenderContext,
-    out: &mut dyn Output) -> HelperResult {
-
-    let query = h.param(0).map(|v| v.value().as_str().unwrap())
+    out: &mut dyn Output,
+) -> HelperResult {
+    let query = h
+        .param(0)
+        .map(|v| v.value().as_str().unwrap())
         .ok_or(RenderError::new("requires an article query"))?;
     let mut buffer = String::new();
 
@@ -32,9 +37,11 @@ fn articles_helper(
     handlebars: &Handlebars,
     _: &Context,
     _: &mut RenderContext,
-    out: &mut dyn Output) -> HelperResult {
-
-    let query = h.param(0).map(|v| v.value().as_str().unwrap())
+    out: &mut dyn Output,
+) -> HelperResult {
+    let query = h
+        .param(0)
+        .map(|v| v.value().as_str().unwrap())
         .ok_or(RenderError::new("requires an article query"))?;
 
     for article in lookup_articles(&query).unwrap().iter_mut() {
@@ -48,7 +55,13 @@ fn articles_helper(
 
 handlebars_helper!(hex_helper: |v: i64| format!("0x{:x}", v));
 
-fn flash_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+fn flash_helper(
+    _: &Helper,
+    _: &Handlebars,
+    context: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output,
+) -> HelperResult {
     if let Some(Value::String(text)) = context.data().get("flash") {
         out.write(r#"<p class="_flash"`>"#)?;
         out.write(text)?;
@@ -57,14 +70,26 @@ fn flash_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderCon
     Ok(())
 }
 
-fn admin_article_title_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+fn admin_article_title_helper(
+    _: &Helper,
+    _: &Handlebars,
+    context: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output,
+) -> HelperResult {
     if let Value::String(ref text) = context.data()["article"]["title"] {
         out.write(&handlebars::html_escape(&text))?;
     }
     Ok(())
 }
 
-fn admin_article_body_helper(_: &Helper, _: &Handlebars, context: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+fn admin_article_body_helper(
+    _: &Helper,
+    _: &Handlebars,
+    context: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output,
+) -> HelperResult {
     if let Value::String(ref text) = context.data()["article"]["body"] {
         out.write(&handlebars::html_escape(text))?;
     }
@@ -90,48 +115,55 @@ pub fn handlebars() -> Handlebars<'static> {
 
 pub fn render_admin<T>(context: &T) -> Result<String, Error>
 where
-    T: Serialize {
-
+    T: Serialize,
+{
     let mut buffer = String::new();
     File::open("templates/admin.hbs")?.read_to_string(&mut buffer)?;
 
     let handlebars = handlebars();
-    handlebars.render_template(&buffer, context).map_err(|e| e.into())
+    handlebars
+        .render_template(&buffer, context)
+        .map_err(|e| e.into())
 }
 
 pub fn render_index<T>(context: &T) -> Result<String, Error>
 where
-    T: Serialize {
-
+    T: Serialize,
+{
     let mut buffer = String::new();
     File::open("templates/index.hbs")?.read_to_string(&mut buffer)?;
 
     let handlebars = handlebars();
-    handlebars.render_template(&buffer, context).map_err(|e| e.into())
+    handlebars
+        .render_template(&buffer, context)
+        .map_err(|e| e.into())
 }
 
 pub fn render_inline<T>(query: &str, context: &T) -> String
 where
-    T: Serialize {
+    T: Serialize,
+{
     render(query, context).unwrap_or("".into())
 }
 
 pub fn render<T>(query: &str, context: &T) -> Result<String, Error>
 where
-    T: Serialize {
-
+    T: Serialize,
+{
     let mut buffer = String::new();
 
     lookup_article(query)?.read_to_string(&mut buffer)?;
 
     let handlebars = handlebars();
-    handlebars.render_template(&buffer, context).map_err(|e| e.into())
+    handlebars
+        .render_template(&buffer, context)
+        .map_err(|e| e.into())
 }
 
 pub fn render_collection<T>(query: &str, context: &T) -> String
 where
-    T: Serialize {
-
+    T: Serialize,
+{
     let mut buffer = String::new();
 
     for article in lookup_articles(&query).unwrap().iter_mut() {
@@ -144,13 +176,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::IndexContext;
     use crate::templates::*;
+    use crate::IndexContext;
 
     #[test]
     fn test_render_admin() {
         let output = render_admin(&IndexContext::default()).unwrap();
-        assert_eq!(r#"<!doctype html>
+        assert_eq!(
+            r#"<!doctype html>
 <html lang="en" style="height: 100%">
   <head>
     <meta charset="utf-8">
@@ -179,6 +212,8 @@ mod tests {
   </div>
   
 </html>
-"#, output);
+"#,
+            output
+        );
     }
 }

@@ -8,13 +8,13 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 
 use rocket::form::Form;
-use rocket::response::{Redirect, status::NotFound, content::Html};
-use rocket::{get, post, routes, launch};
-use rocket::fs::{FileServer, relative};
+use rocket::fs::{relative, FileServer};
+use rocket::response::{content::Html, status::NotFound, Redirect};
+use rocket::{get, launch, post, routes};
 use serde_derive::Serialize;
 
-use crate::articles::{Article, NewArticleRequest, create};
-use crate::templates::{handlebars, render, render_index, render_admin};
+use crate::articles::{create, Article, NewArticleRequest};
+use crate::templates::{handlebars, render, render_admin, render_index};
 
 #[post("/articles", data = "<article_request>")]
 fn create_article(article_request: Form<NewArticleRequest>) -> Result<Html<String>, error::Error> {
@@ -38,17 +38,17 @@ fn redirect_to_root() -> Redirect {
 fn serve_article(path: PathBuf) -> Result<Html<String>, NotFound<String>> {
     let article_query = match path.to_str() {
         Some(v) => v,
-        None => return Err(NotFound("".to_string()))
+        None => return Err(NotFound("".to_string())),
     };
     let ctx = IndexContext::default();
     match render(&article_query, &ctx) {
         Ok(t) => Ok(Html(t)),
-        Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => {
-            Err(NotFound(format!("article not found for query: {:?}", article_query)))
-        },
+        Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => Err(NotFound(
+            format!("article not found for query: {:?}", article_query),
+        )),
         Err(e) => {
             panic!("error serving {:?}", e)
-        },
+        }
     }
 }
 
@@ -77,13 +77,16 @@ fn serve_index() -> Result<Html<String>, error::Error> {
 #[launch]
 fn server() -> _ {
     rocket::build()
-        .mount("/", routes![
-               redirect_to_root,
-               create_article,
-               serve_article,
-               serve_index,
-               serve_admin,
-        ])
+        .mount(
+            "/",
+            routes![
+                redirect_to_root,
+                create_article,
+                serve_article,
+                serve_index,
+                serve_admin,
+            ],
+        )
         .mount("/static", FileServer::from(relative!("site")))
         .manage(handlebars())
 }

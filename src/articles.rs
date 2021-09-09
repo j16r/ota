@@ -1,19 +1,19 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-use std::fs::{File, create_dir_all};
+use std::fs::{create_dir_all, File};
 use std::io::prelude::*;
 use std::io::{self, ErrorKind};
 use std::iter;
 use std::path::{Path, PathBuf};
 
+use crate::index::{find_first_matching_path, update_index};
+use crate::query::Query;
 use chrono::prelude::*;
 use rand::Rng;
 use regex::Regex;
 use rocket::form::FromForm;
-use serde_derive::{Serialize, Deserialize};
-use crate::query::Query;
-use crate::index::{find_first_matching_path, update_index};
+use serde_derive::{Deserialize, Serialize};
 
 type PropertySet = HashMap<String, String>;
 
@@ -24,18 +24,20 @@ pub struct Article {
     title: String,
     body: String,
     properties: PropertySet,
-    tags: HashSet<String>
+    tags: HashSet<String>,
 }
 
 fn random_string() -> String {
     let mut rng = rand::thread_rng();
-    iter::repeat(16).map(|_| rng.gen_range(b'A', b'Z') as char).collect::<String>()
+    iter::repeat(16)
+        .map(|_| rng.gen_range(b'A', b'Z') as char)
+        .collect::<String>()
 }
 
 impl Article {
     pub fn new(request: &NewArticleRequest) -> Article {
         let name = Article::generate_name(&request.title);
-        let mut article = Article{
+        let mut article = Article {
             name,
             title: request.title.clone(),
             body: request.body.clone(),
@@ -43,11 +45,11 @@ impl Article {
             ..Default::default()
         };
         //if let Some(ref properties) = request.properties {
-            //article.properties = properties.clone();
+        //article.properties = properties.clone();
         //}
         Article::add_default_properties(&mut article.properties);
         //if let Some(ref tags) = request.tags {
-            //article.tags = tags.clone();
+        //article.tags = tags.clone();
         //}
         article
     }
@@ -93,7 +95,8 @@ pub fn create(article: &Article) -> std::io::Result<()> {
     let location = format!(
         "data/articles/{}/{}.hbs",
         now.format("%Y/%m/%d"),
-        &article_file_name(&article.name));
+        &article_file_name(&article.name)
+    );
     let path = Path::new(&location);
     let dir = path.parent().unwrap();
     create_dir_all(&dir)?;
@@ -108,15 +111,15 @@ pub fn create(article: &Article) -> std::io::Result<()> {
 
 pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
     println!("lookup_article(query_str: {:?})", query_str);
-    let query : Query = query_str.try_into().unwrap();
+    let query: Query = query_str.try_into().unwrap();
 
     let path = match find_first_matching_path(&query) {
         Ok(r) => r,
         Err(ref e) if e.kind() == ErrorKind::NotFound => {
             println!("failed to find article, trying fallback...");
             load_fallback(&query)?
-        },
-        Err(e) => return Err(e)
+        }
+        Err(e) => return Err(e),
     };
     println!("using article {:?}", path);
     // Ok(path.into_os_string().into_string().unwrap())
@@ -137,8 +140,8 @@ pub fn lookup_articles(_query: &str) -> std::io::Result<Vec<File>> {
     //let path = Path::new("data/articles/").join(query);
 
     //Ok(vec![File::open(path).or_else(|_| {
-        //let fallback_path = Path::new("templates/").join(format!("{}.hbs", query));
-        //File::open(fallback_path)
+    //let fallback_path = Path::new("templates/").join(format!("{}.hbs", query));
+    //File::open(fallback_path)
     //})])
 }
 

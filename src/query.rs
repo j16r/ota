@@ -6,20 +6,20 @@ use thiserror::Error;
 pub struct Query {
     pub id: Option<String>,
     pub properties: Vec<PropertyFilter>,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PropertyFilter {
     field: String,
-    operator: PropertyOperator
+    operator: PropertyOperator,
 }
 
 #[derive(Debug, PartialEq)]
 enum PropertyOperator {
     Equals(String),
     Lt(String),
-    Gt(String)
+    Gt(String),
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -45,9 +45,8 @@ impl<'a> TryFrom<&'a str> for Query {
                 if result.id == None {
                     result.id = Some(id.into());
                 } else {
-                    return Err(QueryParseError::DuplicateID)
+                    return Err(QueryParseError::DuplicateID);
                 }
-
             } else if let Some(pos) = capture.find(operators) {
                 let (field, operator_and_arg) = capture.split_at(pos);
 
@@ -58,16 +57,15 @@ impl<'a> TryFrom<&'a str> for Query {
                 }
 
                 let (operator, argument) = operator_and_arg.split_at(1);
-                result.properties.push(PropertyFilter{
+                result.properties.push(PropertyFilter {
                     field: field.to_string(),
                     operator: match operator {
                         "=" => PropertyOperator::Equals(argument.to_string()),
                         ">" => PropertyOperator::Gt(argument.to_string()),
                         "<" => PropertyOperator::Lt(argument.to_string()),
                         _ => unreachable!(),
-                    }
+                    },
                 });
-
             } else {
                 result.tags.push(capture.into());
             }
@@ -84,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_query_from_str() {
-        let mut query : Query;
+        let mut query: Query;
         query = "@index".try_into().unwrap();
         assert_eq!(query.id, Some("index".to_string()));
 
@@ -95,10 +93,13 @@ mod tests {
         assert_eq!(query.tags, vec!["tag1".to_string(), "tag2".to_string()]);
 
         query = "count=1".try_into().unwrap();
-        assert_eq!(query.properties, vec![PropertyFilter{
-            field: "count".to_string(),
-            operator: PropertyOperator::Equals("1".to_string()),
-        }]);
+        assert_eq!(
+            query.properties,
+            vec![PropertyFilter {
+                field: "count".to_string(),
+                operator: PropertyOperator::Equals("1".to_string()),
+            }]
+        );
     }
 
     #[test]
