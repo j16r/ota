@@ -1,42 +1,42 @@
-use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-use std::fs::{create_dir_all, File};
-use std::io::prelude::*;
-use std::io::{self, ErrorKind};
-use std::iter;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use crate::index::{find_first_matching_path, update_index};
-use crate::query::Query;
+use anyhow::Result;
 use chrono::prelude::*;
-use rand::Rng;
-use regex::Regex;
+use handlebars::RenderError;
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use rocket::form::FromForm;
 use serde_derive::{Deserialize, Serialize};
 
-type PropertySet = HashMap<String, String>;
+use crate::index::{self, Index};
+use crate::query::Query;
 
-#[derive(Serialize, Default, Debug)]
+pub type PropertySet = HashMap<String, String>;
+
+#[derive(Clone, Default, Debug, Serialize)]
 pub struct Article {
     pub id: Option<String>,
-    name: String,
-    title: String,
-    body: String,
-    properties: PropertySet,
-    tags: HashSet<String>,
+    pub name: String,
+    pub title: String,
+    pub body: String,
+    pub properties: PropertySet,
+    pub tags: HashSet<String>,
 }
 
 fn random_string() -> String {
-    let mut rng = rand::thread_rng();
-    iter::repeat(16)
-        .map(|_| rng.gen_range(b'A', b'Z') as char)
-        .collect::<String>()
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
 }
 
 impl Article {
     pub fn new(request: &NewArticleRequest) -> Article {
-        let name = Article::generate_name(&request.title);
+        let name = Self::generate_name(&request.title);
         let mut article = Article {
             name,
             title: request.title.clone(),
@@ -44,18 +44,19 @@ impl Article {
             id: request.id.clone(),
             ..Default::default()
         };
-        //if let Some(ref properties) = request.properties {
-        //article.properties = properties.clone();
-        //}
-        Article::add_default_properties(&mut article.properties);
-        //if let Some(ref tags) = request.tags {
-        //article.tags = tags.clone();
-        //}
+        for property in request.properties.split_whitespace() {
+            let (key, value) = property.split_once(':').unwrap();
+            article.properties.insert(key.into(), value.into());
+        }
+        Self::add_default_properties(&mut article.properties);
+        for tag in request.tags.split_whitespace() {
+            article.tags.insert(tag.into());
+        }
         article
     }
 
-    fn generate_name(body: &str) -> String {
-        for line in body.lines() {
+    fn generate_name(text: &str) -> String {
+        for line in text.lines() {
             let name = line.trim();
             if !name.is_empty() {
                 return name.to_string();
@@ -72,9 +73,17 @@ impl Article {
         properties.insert("month".to_string(), now.format("%m").to_string());
         properties.insert("day".to_string(), now.format("%d").to_string());
     }
+
+    pub fn epoch(&self) -> i64 {
+        self.properties["epoch"].parse().unwrap()
+    }
+
+    pub fn timestamp(&self) -> String {
+        self.properties["timestamp"].clone()
+    }
 }
 
-#[derive(Serialize, Deserialize, FromForm, Debug)]
+#[derive(Serialize, Default, Deserialize, FromForm, Debug)]
 pub struct NewArticleRequest {
     pub title: String,
     pub body: String,
@@ -83,55 +92,36 @@ pub struct NewArticleRequest {
     pub tags: String,
 }
 
-fn article_file_name(path: &str) -> Cow<str> {
-    let article_filename_regex = Regex::new(r"[^A-Za-z0-9]+").unwrap();
-    article_filename_regex.replace_all(path, "_")
-}
-
-pub fn create(article: &Article) -> std::io::Result<()> {
-    let now: DateTime<Utc> = Utc::now();
-
-    // TODO: path is full we wanna clip off the article here
-    let location = format!(
-        "data/articles/{}/{}.hbs",
-        now.format("%Y/%m/%d"),
-        &article_file_name(&article.name)
-    );
-    let path = Path::new(&location);
-    let dir = path.parent().unwrap();
-    create_dir_all(&dir)?;
-
-    let mut file = File::create(path)?;
-    file.write_all(article.body.as_bytes())?;
-
-    update_index(&article, path)?;
-
-    Ok(())
-}
-
-pub fn lookup_article(query_str: &str) -> std::io::Result<File> {
+pub fn lookup_article(
+    index: &mut Box<dyn Index>,
+    query_str: &str,
+) -> Result<Box<dyn std::io::Read>> {
     println!("lookup_article(query_str: {:?})", query_str);
-    let query: Query = query_str.try_into().unwrap();
+    let query: Query = query_str.try_into()?;
 
-    let path = match find_first_matching_path(&query) {
-        Ok(r) => r,
-        Err(ref e) if e.kind() == ErrorKind::NotFound => {
-            println!("failed to find article, trying fallback...");
-            load_fallback(&query)?
-        }
-        Err(e) => return Err(e),
-    };
-    println!("using article {:?}", path);
-    // Ok(path.into_os_string().into_string().unwrap())
-    File::open(path)
+    match index.first(&query) {
+        Ok(r) => r.body(),
+        Err(e) => match e.downcast_ref::<index::Error>() {
+            Some(index::Error::ArticleNotFound) => {
+                println!("failed to find article, trying fallback...");
+                File::open(load_fallback(&query)?)
+                    .map(|f| Box::new(f) as Box<dyn std::io::Read>)
+                    .map_err(|_| RenderError::new("error finding fallback article").into())
+            }
+            _ => {
+                eprintln!("error from index {:?}", &e);
+                Err(e)
+            }
+        },
+    }
 }
 
-fn load_fallback(query: &Query) -> std::io::Result<PathBuf> {
+fn load_fallback(query: &Query) -> Result<PathBuf> {
     if let Some(ref id) = query.id {
         println!("query#id = {:?}", id);
-        return Ok(Path::new("templates/").join(format!("{}.hbs", id)))
+        return Ok(Path::new("templates/").join(format!("{}.html.hbs", id)));
     }
-    Err(io::Error::new(ErrorKind::NotFound, "not found"))
+    Err(index::Error::ArticleNotFound.into())
 }
 
 pub fn lookup_articles(_query: &str) -> std::io::Result<Vec<File>> {
@@ -149,10 +139,10 @@ mod tests {
     use crate::articles::*;
 
     #[test]
-    fn test_article_file_name() {
-        assert_eq!(article_file_name("abcd"), "abcd");
-        assert_eq!(article_file_name("a!@#bcd"), "a_bcd");
-        assert_eq!(article_file_name("number 10"), "number_10");
-        assert_eq!(article_file_name(""), "");
+    fn test_new() {
+        Article::new(&NewArticleRequest {
+            id: Some("main".to_string()),
+            ..Default::default()
+        });
     }
 }

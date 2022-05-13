@@ -1,32 +1,46 @@
+#![feature(associated_type_bounds)]
+#![feature(associated_type_defaults)]
+#![feature(type_alias_impl_trait)]
+#![feature(trait_alias)]
+
 mod articles;
 mod error;
 mod index;
 mod query;
 mod templates;
 
-use std::io::ErrorKind;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use rocket::form::Form;
 use rocket::fs::{relative, FileServer};
-use rocket::response::{content::Html, status::NotFound, Redirect};
-use rocket::{get, launch, post, routes};
-use serde_derive::Serialize;
+use rocket::response::{status::NotFound, Redirect};
+use rocket::{get, launch, post, routes, State};
+use rocket_dyn_templates::serde::Serialize;
+use rocket_dyn_templates::Template;
 
-use crate::articles::{create, Article, NewArticleRequest};
-use crate::templates::{handlebars, render, render_admin, render_index};
+use crate::articles::{Article, NewArticleRequest};
+use crate::index::{local::Local, Index};
+use crate::templates::register_helpers;
+
+#[derive(Clone)]
+pub struct App {
+    index: Arc<Mutex<Box<dyn Index>>>,
+}
 
 #[post("/articles", data = "<article_request>")]
-fn create_article(article_request: Form<NewArticleRequest>) -> Result<Html<String>, error::Error> {
+fn create_article(
+    index_state: &State<Arc<App>>,
+    article_request: Form<NewArticleRequest>,
+) -> Result<Template, error::Error> {
     let mut ctx = IndexContext::default();
     let article = Article::new(&article_request);
-    if create(&article).is_err() {
+    if index_state.index.lock().unwrap().update(&article).is_err() {
         ctx.flash = Some("Error creating article".into());
     } else {
         ctx.article = Some(article);
     }
-    let template = render_admin(&ctx)?;
-    Ok(Html(template))
+    Ok(Template::render("admin", ctx))
 }
 
 #[get("/")]
@@ -35,21 +49,22 @@ fn redirect_to_root() -> Redirect {
 }
 
 #[get("/articles/<path..>")]
-fn serve_article(path: PathBuf) -> Result<Html<String>, NotFound<String>> {
-    let article_query = match path.to_str() {
+fn serve_article(path: PathBuf) -> Result<Template, NotFound<String>> {
+    let _article_query = match path.to_str() {
         Some(v) => v,
         None => return Err(NotFound("".to_string())),
     };
-    let ctx = IndexContext::default();
-    match render(&article_query, &ctx) {
-        Ok(t) => Ok(Html(t)),
-        Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => Err(NotFound(
-            format!("article not found for query: {:?}", article_query),
-        )),
-        Err(e) => {
-            panic!("error serving {:?}", e)
-        }
-    }
+    let _ctx = IndexContext::default();
+    todo!();
+    // match render(&article_query, &ctx) {
+    //     Ok(t) => Ok(Html(t)),
+    //     Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => Err(NotFound(
+    //         format!("article not found for query: {:?}", article_query),
+    //     )),
+    //     Err(e) => {
+    //         panic!("error serving {:?}", e)
+    //     }
+    // }
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -61,21 +76,24 @@ struct IndexContext {
 
 // TODO: Authentication
 #[get("/admin")]
-fn serve_admin() -> Result<Html<String>, error::Error> {
+fn serve_admin() -> Template {
     let ctx = IndexContext::default();
-    let template = render_admin(&ctx)?;
-    Ok(Html(template))
+    Template::render("admin", ctx)
 }
 
 #[get("/index")]
-fn serve_index() -> Result<Html<String>, error::Error> {
+fn serve_index() -> Template {
     let ctx = IndexContext::default();
-    let template = render_index(&ctx)?;
-    Ok(Html(template))
+    Template::render("index", ctx)
 }
 
 #[launch]
 fn server() -> _ {
+    let index = Local::new("data").unwrap();
+    let state = Arc::new(App {
+        index: Arc::new(Mutex::new(Box::new(index))),
+    });
+
     rocket::build()
         .mount(
             "/",
@@ -88,5 +106,9 @@ fn server() -> _ {
             ],
         )
         .mount("/static", FileServer::from(relative!("site")))
-        .manage(handlebars())
+        .manage(state.clone())
+        .attach(Template::custom(move |engines| {
+            let inner_state = Arc::clone(&state);
+            register_helpers(&mut engines.handlebars, inner_state);
+        }))
 }

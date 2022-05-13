@@ -11,8 +11,9 @@ anyhow = "*"
 handlebars = "4"
 rand = "0.6"
 regex = "1.0.1"
-rocket = "0.5.0-rc"
-rocket_codegen = "0.5.0-rc"
+rocket = "0.5.0-rc.2"
+rocket_codegen = "0.5.0-rc.2"
+rocket_dyn_templates = { version = "0.1.0-rc.2", features = ["handlebars"] }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
@@ -21,3 +22,6 @@ thiserror = "*"
 [dependencies.chrono]
 version = "0.4"
 features = ["serde", "rustc-serialize"]
+
+[dev-dependencies]
+tempdir = "0.3.7"

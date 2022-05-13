@@ -16,16 +16,16 @@ macro_rules! impl_from_error {
 
 #[derive(Debug)]
 pub enum Error {
-    IoError(std::io::Error),
-    TemplateError(handlebars::TemplateError),
-    RenderError(handlebars::RenderError),
+    Io(std::io::Error),
+    Template(handlebars::TemplateError),
+    Render(handlebars::RenderError),
 }
 
 impl<'r> Responder<'r, 'static> for Error {
     fn respond_to(self, _: &'r Request<'_>) -> Result<Response<'static>, Status> {
         let mut response = Response::build();
         match self {
-            Error::IoError(ref e) if e.kind() == ErrorKind::NotFound => {
+            Error::Io(ref e) if e.kind() == ErrorKind::NotFound => {
                 response.status(Status::NotFound);
             }
             _ => return Err(Status::InternalServerError),
@@ -34,6 +34,6 @@ impl<'r> Responder<'r, 'static> for Error {
     }
 }
 
-impl_from_error!(std::io::Error, Error::IoError);
-impl_from_error!(handlebars::TemplateError, Error::TemplateError);
-impl_from_error!(handlebars::RenderError, Error::RenderError);
+impl_from_error!(std::io::Error, Error::Io);
+impl_from_error!(handlebars::TemplateError, Error::Template);
+impl_from_error!(handlebars::RenderError, Error::Render);

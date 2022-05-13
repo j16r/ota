@@ -1,21 +1,22 @@
 use std::convert::TryFrom;
 
+use anyhow::Result;
 use thiserror::Error;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Query {
     pub id: Option<String>,
     pub properties: Vec<PropertyFilter>,
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PropertyFilter {
     field: String,
     operator: PropertyOperator,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum PropertyOperator {
     Equals(String),
     Lt(String),
@@ -40,7 +41,7 @@ impl<'a> TryFrom<&'a str> for Query {
         let operators: &[_] = &['=', '<', '>'];
 
         for capture in query.split_whitespace() {
-            if let Some(id) = capture.strip_prefix("@") {
+            if let Some(id) = capture.strip_prefix('@') {
                 if result.id == None {
                     result.id = Some(id.into());
                 } else {
@@ -81,8 +82,8 @@ mod tests {
 
     #[test]
     fn test_query_from_str() {
-        let mut query: Query;
-        query = "@index".try_into().unwrap();
+        
+        let mut query: Query = "@index".try_into().unwrap();
         assert_eq!(query.id, Some("index".to_string()));
 
         query = "tag".try_into().unwrap();
@@ -103,8 +104,8 @@ mod tests {
 
     #[test]
     fn test_query_from_str_invalid() {
-        let mut query: Result<Query, _>;
-        query = "@index @index".try_into();
+        
+        let mut query: Result<Query, _> = "@index @index".try_into();
         assert!(query.is_err());
         assert_eq!(query.unwrap_err(), QueryParseError::DuplicateID);
 
