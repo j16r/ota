@@ -124,15 +124,23 @@ fn load_fallback(query: &Query) -> Result<PathBuf> {
     Err(index::Error::ArticleNotFound.into())
 }
 
-pub fn lookup_articles(_query: &str) -> std::io::Result<Vec<File>> {
-    Ok(vec![])
-    //let path = Path::new("data/articles/").join(query);
+// pub fn lookup_articles(
+//     index: &mut Box<dyn Index>,
+//     query_str: &str) -> std::io::Result<Vec<File>> {
 
-    //Ok(vec![File::open(path).or_else(|_| {
-    //let fallback_path = Path::new("templates/").join(format!("{}.hbs", query));
-    //File::open(fallback_path)
-    //})])
-}
+//     println!("lookup_articles(query_str: {:?})", query_str);
+//     let query: Query = query_str.try_into()?;
+
+//     for article in index.search(&query) {
+//     }
+//     Ok(vec![])
+//     // let path = Path::new("data/articles/").join(query);
+
+//     // Ok(vec![File::open(path).or_else(|_| {
+//     // let fallback_path = Path::new("templates/").join(format!("{}.hbs", query));
+//     // File::open(fallback_path)
+//     // })])
+// }
 
 #[cfg(test)]
 mod tests {

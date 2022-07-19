@@ -74,6 +74,12 @@ struct IndexContext {
     article: Option<Article>,
 }
 
+#[get("/articles")]
+fn serve_articles() -> Template {
+    let ctx = IndexContext::default();
+    Template::render("articles/index", ctx)
+}
+
 // TODO: Authentication
 #[get("/admin")]
 fn serve_admin() -> Template {
@@ -101,6 +107,7 @@ fn server() -> _ {
                 redirect_to_root,
                 create_article,
                 serve_article,
+                serve_articles,
                 serve_index,
                 serve_admin,
             ],

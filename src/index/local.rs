@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fs::{create_dir_all, read_dir, File, ReadDir};
 use std::path::{Path, PathBuf};
+use std::io::Write;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -31,7 +32,9 @@ impl Iterator for LocalIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ref id) = self.query.id {
+            dbg!(&id);
             if let Some(dir) = self.reader.next() {
+                dbg!(&dir);
                 let path = dir.unwrap().path();
                 if path.is_dir() {
                     let path_str = path.to_str().unwrap();
@@ -51,6 +54,11 @@ impl Iterator for LocalIterator {
                     }
                 }
             }
+        } else {
+            // Empty query means get everything, we use the date index to return most recent
+            // results at the top
+
+
         }
         None
     }
@@ -78,19 +86,40 @@ impl Index for Local {
         let now: DateTime<Utc> = article.timestamp().parse().unwrap();
 
         // TODO: path is full we wanna clip off the article here
-        let location = format!(
+        let article_location = format!(
             "data/articles/{}/{}.html.hbs",
             now.format("%Y/%m/%d"),
             &article_file_name(&article.name)
         );
-        let path = Path::new(&location);
+        let path = Path::new(&article_location);
         let dir = path.parent().unwrap();
         create_dir_all(&dir)?;
+
+        let mut article_file = File::create(&article_location)?;
+        article_file.write(article.body.as_bytes())?;
 
         // 3 different kinds of attributes
         // ids: unique/discrete, best to index in a trie
         // tags strings, not unique per article
         // properties are key:value, keys are unique, values are not
+
+        // let name = article.name {
+
+        if let Some(id) = &article.id {
+            let id_index_location = format!("data/index/id/{}/location", id);
+            let path = Path::new(&id_index_location);
+            let dir = path.parent().unwrap();
+            create_dir_all(dir)?;
+
+            let mut id_index_file = File::create(id_index_location)?;
+            id_index_file.write(article_location.as_bytes())?;
+        }
+
+        // for tag in article.tags.iter() {
+        // }
+
+        // for (key, value) in article.properties.iter() {
+        // }
 
         // let reader = read_dir(self.path)?;
         // for entry in reader {
@@ -158,5 +187,9 @@ mod tests {
         assert_eq!(article_file_name("a!@#bcd"), "a_bcd");
         assert_eq!(article_file_name("number 10"), "number_10");
         assert_eq!(article_file_name(""), "");
+    }
+
+    #[test]
+    fn test_article_update_only_id() {
     }
 }

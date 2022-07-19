@@ -2,6 +2,7 @@
 // use std::io::prelude::*;
 use std::io::Read;
 use std::sync::Arc;
+use std::convert::TryInto;
 
 use handlebars::{
     handlebars_helper, Context, Handlebars, Helper, HelperDef, HelperResult, Output, RenderContext,
@@ -10,7 +11,8 @@ use handlebars::{
 // use serde::Serialize;
 use serde_json::value::Value;
 
-use crate::articles::{lookup_article, lookup_articles};
+use crate::articles::lookup_article;
+use crate::query::{Query, QueryParseError};
 
 use crate::App;
 
@@ -42,7 +44,7 @@ fn wrapped_article_helper(state: Arc<App>) -> Box<dyn HelperDef + Sync + Send> {
 }
 
 // Articles returns all articles that match a pattern, can be used for pagination
-fn wrapped_articles_helper(_state: Arc<App>) -> Box<dyn HelperDef + Sync + Send> {
+fn wrapped_articles_helper(state: Arc<App>) -> Box<dyn HelperDef + Sync + Send> {
     Box::new(
         move |h: &Helper,
               handlebars: &Handlebars,
@@ -50,14 +52,20 @@ fn wrapped_articles_helper(_state: Arc<App>) -> Box<dyn HelperDef + Sync + Send>
               _: &mut RenderContext,
               out: &mut dyn Output|
               -> HelperResult {
-            let query = h
+
+            let query: Query = h
                 .param(0)
                 .map(|v| v.value().as_str().unwrap())
-                .ok_or_else(|| RenderError::new("requires an article query"))?;
+                .ok_or_else(|| RenderError::new("requires an article query"))?
+                .try_into()
+                .map_err(|_e: QueryParseError| RenderError::new("query error"))?;
 
-            for article in lookup_articles(query).unwrap().iter_mut() {
+            eprintln!("articles, query = {:?}", &query);
+
+            let mut index = state.index.lock().unwrap();
+            for article in &mut *index.search(&query).unwrap() {
                 let mut buffer = String::new();
-                article.read_to_string(&mut buffer).unwrap();
+                article.body().unwrap().read_to_string(&mut buffer).unwrap();
                 out.write(dbg!(handlebars.render_template(&buffer, &()))?.as_ref())?;
             }
 
@@ -96,6 +104,19 @@ fn admin_article_title_helper(
     Ok(())
 }
 
+fn admin_article_id_helper(
+    _: &Helper,
+    _: &Handlebars,
+    context: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output,
+) -> HelperResult {
+    if let Value::String(ref text) = context.data()["article"]["id"] {
+        out.write(&handlebars::html_escape(text))?;
+    }
+    Ok(())
+}
+
 fn admin_article_body_helper(
     _: &Helper,
     _: &Handlebars,
@@ -119,6 +140,8 @@ pub fn register_helpers(handlebars: &mut Handlebars, state: Arc<App>) {
 
     // Internal helpers
     handlebars.register_helper("_flash", Box::new(flash_helper));
+
     handlebars.register_helper("_admin_article_title", Box::new(admin_article_title_helper));
+    handlebars.register_helper("_admin_article_id", Box::new(admin_article_id_helper));
     handlebars.register_helper("_admin_article_body", Box::new(admin_article_body_helper));
 }
