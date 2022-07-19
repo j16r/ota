@@ -1,8 +1,8 @@
 // use std::fs::File;
 // use std::io::prelude::*;
+use std::convert::TryInto;
 use std::io::Read;
 use std::sync::Arc;
-use std::convert::TryInto;
 
 use handlebars::{
     handlebars_helper, Context, Handlebars, Helper, HelperDef, HelperResult, Output, RenderContext,
@@ -52,7 +52,6 @@ fn wrapped_articles_helper(state: Arc<App>) -> Box<dyn HelperDef + Sync + Send> 
               _: &mut RenderContext,
               out: &mut dyn Output|
               -> HelperResult {
-
             let query: Query = h
                 .param(0)
                 .map(|v| v.value().as_str().unwrap())

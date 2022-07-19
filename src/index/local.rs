@@ -1,8 +1,9 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fs::{create_dir_all, read_dir, File, ReadDir};
-use std::path::{Path, PathBuf};
 use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -57,8 +58,6 @@ impl Iterator for LocalIterator {
         } else {
             // Empty query means get everything, we use the date index to return most recent
             // results at the top
-
-
         }
         None
     }
@@ -86,11 +85,11 @@ impl Index for Local {
         let now: DateTime<Utc> = article.timestamp().parse().unwrap();
 
         // TODO: path is full we wanna clip off the article here
-        let article_location = format!(
-            "data/articles/{}/{}.html.hbs",
+        let article_location = self.path.join(format!(
+            "articles/{}/{}.html.hbs",
             now.format("%Y/%m/%d"),
             &article_file_name(&article.name)
-        );
+        ));
         let path = Path::new(&article_location);
         let dir = path.parent().unwrap();
         create_dir_all(&dir)?;
@@ -106,13 +105,12 @@ impl Index for Local {
         // let name = article.name {
 
         if let Some(id) = &article.id {
-            let id_index_location = format!("data/index/id/{}/location", id);
-            let path = Path::new(&id_index_location);
-            let dir = path.parent().unwrap();
+            let id_index_location = self.path.join(format!("index/id/{}/location", id));
+            let dir = id_index_location.parent().unwrap();
             create_dir_all(dir)?;
 
             let mut id_index_file = File::create(id_index_location)?;
-            id_index_file.write(article_location.as_bytes())?;
+            id_index_file.write(article_location.as_os_str().as_bytes())?;
         }
 
         // for tag in article.tags.iter() {
@@ -172,6 +170,10 @@ impl Index for Local {
     }
 }
 
+fn update_dir_trie(path: &Path) -> std::io::Result<()> {
+    create_dir_all(path)
+}
+
 fn article_file_name(path: &str) -> Cow<str> {
     let article_filename_regex = Regex::new(r"[^A-Za-z0-9]+").unwrap();
     article_filename_regex.replace_all(path, "_")
@@ -180,6 +182,24 @@ fn article_file_name(path: &str) -> Cow<str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempdir::TempDir;
+    use walkdir::WalkDir;
+
+    fn enumerate_dirs(path: &Path) -> Vec<String> {
+        let path_str = path.to_str().unwrap();
+        WalkDir::new(path)
+            .into_iter()
+            .filter_map(|d| {
+                d.unwrap()
+                    .path()
+                    .to_str()
+                    .unwrap()
+                    .strip_prefix(path_str)
+                    .map(|s| s.to_owned())
+            })
+            .filter(|s| !s.is_empty())
+            .collect()
+    }
 
     #[test]
     fn test_article_file_name() {
@@ -191,5 +211,19 @@ mod tests {
 
     #[test]
     fn test_article_update_only_id() {
+        let dir = TempDir::new("").unwrap();
+        // assert!(enumerate_dirs(&dir.path()).is_empty());
+
+        update_dir_trie(&dir.path().join("a")).unwrap();
+        assert_eq!(enumerate_dirs(&dir.path()), ["/a"]);
+
+        update_dir_trie(&dir.path().join("b")).unwrap();
+        assert_eq!(enumerate_dirs(&dir.path()), ["/a", "/b"]);
+
+        update_dir_trie(&dir.path().join("ab")).unwrap();
+        assert_eq!(enumerate_dirs(&dir.path()), ["/a", "/a/b", "/b"]);
+
+        update_dir_trie(&dir.path().join("ad")).unwrap();
+        assert_eq!(enumerate_dirs(&dir.path()), ["/a", "/a/b", "/a/d", "/b"]);
     }
 }

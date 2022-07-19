@@ -1031,6 +1031,7 @@ dependencies = [
  "serde_json",
  "tempdir",
  "thiserror",
+ "walkdir",
 ]
 
 [[package]]

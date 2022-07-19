@@ -82,7 +82,6 @@ mod tests {
 
     #[test]
     fn test_query_from_str() {
-        
         let mut query: Query = "@index".try_into().unwrap();
         assert_eq!(query.id, Some("index".to_string()));
 
@@ -104,7 +103,6 @@ mod tests {
 
     #[test]
     fn test_query_from_str_invalid() {
-        
         let mut query: Result<Query, _> = "@index @index".try_into();
         assert!(query.is_err());
         assert_eq!(query.unwrap_err(), QueryParseError::DuplicateID);
