@@ -95,7 +95,7 @@ impl Index for Local {
         create_dir_all(&dir)?;
 
         let mut article_file = File::create(&article_location)?;
-        article_file.write(article.body.as_bytes())?;
+        article_file.write_all(article.body.as_bytes())?;
 
         // 3 different kinds of attributes
         // ids: unique/discrete, best to index in a trie
@@ -110,7 +110,7 @@ impl Index for Local {
             create_dir_all(dir)?;
 
             let mut id_index_file = File::create(id_index_location)?;
-            id_index_file.write(article_location.as_os_str().as_bytes())?;
+            id_index_file.write_all(article_location.as_os_str().as_bytes())?;
         }
 
         // for tag in article.tags.iter() {
