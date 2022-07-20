@@ -25,4 +25,4 @@ version = "0.4"
 features = ["serde", "rustc-serialize"]
 
 [dev-dependencies]
-tempdir = "0.3.7"
+tempdir = "0.3"
