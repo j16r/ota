@@ -215,15 +215,15 @@ mod tests {
         // assert!(enumerate_dirs(&dir.path()).is_empty());
 
         update_dir_trie(&dir.path().join("a")).unwrap();
-        assert_eq!(enumerate_dirs(&dir.path()), ["/a"]);
+        assert_eq!(enumerate_dirs(dir.path()), ["/a"]);
 
         update_dir_trie(&dir.path().join("b")).unwrap();
-        assert_eq!(enumerate_dirs(&dir.path()), ["/a", "/b"]);
+        assert_eq!(enumerate_dirs(dir.path()), ["/a", "/b"]);
 
         update_dir_trie(&dir.path().join("ab")).unwrap();
-        assert_eq!(enumerate_dirs(&dir.path()), ["/a", "/a/b", "/b"]);
+        assert_eq!(enumerate_dirs(dir.path()), ["/a", "/a/b", "/b"]);
 
         update_dir_trie(&dir.path().join("ad")).unwrap();
-        assert_eq!(enumerate_dirs(&dir.path()), ["/a", "/a/b", "/a/d", "/b"]);
+        assert_eq!(enumerate_dirs(dir.path()), ["/a", "/a/b", "/a/d", "/b"]);
     }
 }

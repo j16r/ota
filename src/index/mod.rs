@@ -23,7 +23,7 @@ pub trait Index: Send + Sync {
     }
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum Error {
     #[error("no articles found that match that query")]
     ArticleNotFound,

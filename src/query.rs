@@ -23,7 +23,7 @@ enum PropertyOperator {
     Gt(String),
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum QueryParseError {
     #[error("missing right hand side of property filter")]
     MissingOperatorArgument,
