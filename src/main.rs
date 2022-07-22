@@ -1,8 +1,3 @@
-#![feature(associated_type_bounds)]
-#![feature(associated_type_defaults)]
-#![feature(type_alias_impl_trait)]
-#![feature(trait_alias)]
-
 mod articles;
 mod error;
 mod index;
