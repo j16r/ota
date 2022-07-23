@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::fs::{create_dir_all, read_dir, rename, remove_dir, File, ReadDir};
+use std::fs::{create_dir_all, read_dir, remove_dir, rename, File, ReadDir};
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
@@ -173,12 +173,12 @@ impl Index for Local {
 
 fn move_contents(from: &Path, to: &Path) -> std::io::Result<()> {
     eprintln!("move_contents({:?}, {:?})", &from, &to);
-    for entry in WalkDir::new(&from)
-        .min_depth(1)
-        .max_depth(1)
-        .into_iter() {
-        let entry = entry.unwrap();
-        rename(entry.path(), to.join(entry.path().strip_prefix(from).unwrap()))?;
+    for entry in WalkDir::new(&from).min_depth(1).max_depth(1).into_iter() {
+        let entry = entry?;
+        rename(
+            entry.path(),
+            to.join(entry.path().strip_prefix(from).unwrap()),
+        )?;
     }
     Ok(())
 }
@@ -186,22 +186,26 @@ fn move_contents(from: &Path, to: &Path) -> std::io::Result<()> {
 fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<()> {
     eprintln!("update_dir_trie({:?}, {:?})", &root, &location);
     for entry in WalkDir::new(root)
+        .sort_by_file_name()
         .min_depth(1)
         .max_depth(1)
-        .into_iter() {
-
-        let entry = entry.unwrap();
-        let entry_path = entry.path().strip_prefix(root).unwrap().to_str().unwrap().to_owned();
+        .into_iter()
+    {
+        let entry = entry?;
+        let entry_path = entry
+            .file_name()
+            .to_str()
+            .unwrap()
+            .to_owned();
         let location_str = location.to_str().unwrap();
-        if entry_path.starts_with(&location_str) {
-            let remainder = entry_path.strip_prefix(&location_str).unwrap();
-
+        if let Some(remainder) = entry_path.strip_prefix(&location_str) {
             let new_path = root.join(location.join(remainder));
-            dbg!(&new_path);
-
             create_dir_all(&new_path)?;
-            move_contents(&entry.path(), &new_path)?;
+            move_contents(entry.path(), &new_path)?;
             return remove_dir(&entry.path());
+        } else if let Some(remainder) = location_str.strip_prefix(&entry_path) {
+            let new_path = entry.path().join(remainder);
+            return create_dir_all(&new_path);
         }
     }
     create_dir_all(root.join(location))
@@ -244,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    fn test_article_update_only_id() {
+    fn test_update_dir_trie() {
         let temp = TempDir::new("").unwrap();
         let root = temp.path().to_owned();
         assert!(enumerate_dirs(&root).is_empty());
@@ -256,21 +260,27 @@ mod tests {
         assert_eq!(enumerate_dirs(&root), ["a", "b"]);
 
         update_dir_trie(&root, Path::new("ab")).unwrap();
-        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b"]);
+        assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b"]);
 
         update_dir_trie(&root, Path::new("da")).unwrap();
-        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "da"]);
+        assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b", "da"]);
 
         update_dir_trie(&root, Path::new("d")).unwrap();
-        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "d", "d/a"]);
+        assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b", "d", "d/a"]);
 
         update_dir_trie(&root, Path::new("caa")).unwrap();
-        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "caa", "d", "d/a"]);
+        assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b", "caa", "d", "d/a"]);
 
         update_dir_trie(&root, Path::new("ca")).unwrap();
-        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "ca", "ca/a", "d", "d/a"]);
+        assert_eq!(
+            enumerate_dirs(&root),
+            ["a", "a/b", "b", "ca", "ca/a", "d", "d/a"]
+        );
 
         update_dir_trie(&root, Path::new("c")).unwrap();
-        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "c", "c/a", "c/a/a", "d", "d/a"]);
+        assert_eq!(
+            enumerate_dirs(&root),
+            ["a", "a/b", "b", "c", "c/a", "c/a/a", "d", "d/a"]
+        );
     }
 }
