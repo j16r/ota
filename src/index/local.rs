@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::fs::{create_dir_all, read_dir, File, ReadDir};
+use std::fs::{create_dir_all, read_dir, rename, remove_dir, File, ReadDir};
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use regex::Regex;
+use walkdir::WalkDir;
 
 use crate::articles::{Article, PropertySet};
 use crate::index::{Entry, Index};
@@ -170,8 +171,40 @@ impl Index for Local {
     }
 }
 
-fn update_dir_trie(path: &Path) -> std::io::Result<()> {
-    create_dir_all(path)
+fn move_contents(from: &Path, to: &Path) -> std::io::Result<()> {
+    eprintln!("move_contents({:?}, {:?})", &from, &to);
+    for entry in WalkDir::new(&from)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter() {
+        let entry = entry.unwrap();
+        rename(entry.path(), to.join(entry.path().strip_prefix(from).unwrap()))?;
+    }
+    Ok(())
+}
+
+fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<()> {
+    eprintln!("update_dir_trie({:?}, {:?})", &root, &location);
+    for entry in WalkDir::new(root)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter() {
+
+        let entry = entry.unwrap();
+        let entry_path = entry.path().strip_prefix(root).unwrap().to_str().unwrap().to_owned();
+        let location_str = location.to_str().unwrap();
+        if entry_path.starts_with(&location_str) {
+            let remainder = entry_path.strip_prefix(&location_str).unwrap();
+
+            let new_path = root.join(location.join(remainder));
+            dbg!(&new_path);
+
+            create_dir_all(&new_path)?;
+            move_contents(&entry.path(), &new_path)?;
+            return remove_dir(&entry.path());
+        }
+    }
+    create_dir_all(root.join(location))
 }
 
 fn article_file_name(path: &str) -> Cow<str> {
@@ -186,15 +219,16 @@ mod tests {
     use walkdir::WalkDir;
 
     fn enumerate_dirs(path: &Path) -> Vec<String> {
-        let path_str = path.to_str().unwrap();
+        let prefix = path.to_owned();
         WalkDir::new(path)
+            .sort_by_file_name()
             .into_iter()
             .filter_map(|d| {
                 d.unwrap()
                     .path()
-                    .to_str()
+                    .strip_prefix(&prefix)
                     .unwrap()
-                    .strip_prefix(path_str)
+                    .to_str()
                     .map(|s| s.to_owned())
             })
             .filter(|s| !s.is_empty())
@@ -211,19 +245,32 @@ mod tests {
 
     #[test]
     fn test_article_update_only_id() {
-        let dir = TempDir::new("").unwrap();
-        // assert!(enumerate_dirs(&dir.path()).is_empty());
+        let temp = TempDir::new("").unwrap();
+        let root = temp.path().to_owned();
+        assert!(enumerate_dirs(&root).is_empty());
 
-        update_dir_trie(&dir.path().join("a")).unwrap();
-        assert_eq!(enumerate_dirs(dir.path()), ["/a"]);
+        update_dir_trie(&root, Path::new("a")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a"]);
 
-        update_dir_trie(&dir.path().join("b")).unwrap();
-        assert_eq!(enumerate_dirs(dir.path()), ["/a", "/b"]);
+        update_dir_trie(&root, Path::new("b")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a", "b"]);
 
-        update_dir_trie(&dir.path().join("ab")).unwrap();
-        assert_eq!(enumerate_dirs(dir.path()), ["/a", "/a/b", "/b"]);
+        update_dir_trie(&root, Path::new("ab")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b"]);
 
-        update_dir_trie(&dir.path().join("ad")).unwrap();
-        assert_eq!(enumerate_dirs(dir.path()), ["/a", "/a/b", "/a/d", "/b"]);
+        update_dir_trie(&root, Path::new("da")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "da"]);
+
+        update_dir_trie(&root, Path::new("d")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "d", "d/a"]);
+
+        update_dir_trie(&root, Path::new("caa")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "caa", "d", "d/a"]);
+
+        update_dir_trie(&root, Path::new("ca")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "ca", "ca/a", "d", "d/a"]);
+
+        update_dir_trie(&root, Path::new("c")).unwrap();
+        assert_eq!(enumerate_dirs(&root), ["a", "ab", "b", "c", "c/a", "c/a/a", "d", "d/a"]);
     }
 }

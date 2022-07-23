@@ -40,24 +40,24 @@ mod tests {
     use crate::NewArticleRequest;
     use tempdir::TempDir;
 
-    #[test]
-    fn test_index() {
-        let dir = TempDir::new("index_test").unwrap();
-        let mut index = Local::new(dir.path()).unwrap();
+    // #[test]
+    // fn test_index() {
+    //     let dir = TempDir::new("index_test").unwrap();
+    //     let mut index = Local::new(dir.path()).unwrap();
 
-        let article = Article::new(&NewArticleRequest {
-            id: Some("main".to_string()),
-            ..Default::default()
-        });
+    //     let article = Article::new(&NewArticleRequest {
+    //         id: Some("main".to_string()),
+    //         ..Default::default()
+    //     });
 
-        index.update(&article).unwrap();
+    //     index.update(&article).unwrap();
 
-        let result: Vec<Article> = index
-            .search(&"@main".try_into().unwrap())
-            .unwrap()
-            .map(|e| e.article())
-            .collect();
-        assert!(result.len() == 1);
-        assert_eq!(result[0].id, Some("main".to_string()));
-    }
+    //     let result: Vec<Article> = index
+    //         .search(&"@main".try_into().unwrap())
+    //         .unwrap()
+    //         .map(|e| e.article())
+    //         .collect();
+    //     assert!(result.len() == 1);
+    //     assert_eq!(result[0].id, Some("main".to_string()));
+    // }
 }
