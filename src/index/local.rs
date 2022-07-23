@@ -192,11 +192,7 @@ fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<()> {
         .into_iter()
     {
         let entry = entry?;
-        let entry_path = entry
-            .file_name()
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let entry_path = entry.file_name().to_str().unwrap().to_owned();
         let location_str = location.to_str().unwrap();
         if let Some(remainder) = entry_path.strip_prefix(&location_str) {
             let new_path = root.join(location.join(remainder));
@@ -204,10 +200,10 @@ fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<()> {
             move_contents(entry.path(), &new_path)?;
             return remove_dir(&entry.path());
         } else if let Some(remainder) = location_str.strip_prefix(&entry_path) {
-            let new_path = entry.path().join(remainder);
-            return create_dir_all(&new_path);
+            return update_dir_trie(entry.path(), Path::new(remainder));
         }
     }
+    dbg!(&location);
     create_dir_all(root.join(location))
 }
 
@@ -259,15 +255,18 @@ mod tests {
         update_dir_trie(&root, Path::new("b")).unwrap();
         assert_eq!(enumerate_dirs(&root), ["a", "b"]);
 
+        // Sees an existing root part of the branch, splits off the "b"
         update_dir_trie(&root, Path::new("ab")).unwrap();
         assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b"]);
 
+        // Create a longer path that will be split later
         update_dir_trie(&root, Path::new("da")).unwrap();
         assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b", "da"]);
 
         update_dir_trie(&root, Path::new("d")).unwrap();
         assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b", "d", "d/a"]);
 
+        // Tests move contents
         update_dir_trie(&root, Path::new("caa")).unwrap();
         assert_eq!(enumerate_dirs(&root), ["a", "a/b", "b", "caa", "d", "d/a"]);
 
@@ -281,6 +280,13 @@ mod tests {
         assert_eq!(
             enumerate_dirs(&root),
             ["a", "a/b", "b", "c", "c/a", "c/a/a", "d", "d/a"]
+        );
+
+        // Tests recursion
+        update_dir_trie(&root, Path::new("caab")).unwrap();
+        assert_eq!(
+            enumerate_dirs(&root),
+            ["a", "a/b", "b", "c", "c/a", "c/a/a", "c/a/a/b", "d", "d/a"]
         );
     }
 }
