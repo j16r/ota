@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::fs::{create_dir_all, read_dir, remove_dir, rename, File, ReadDir};
+use std::fs::{create_dir_all, remove_dir, rename, File};
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
@@ -26,7 +26,7 @@ impl Local {
 
 pub struct LocalIterator {
     query: Query,
-    reader: ReadDir,
+    walker: walkdir::IntoIter,
 }
 
 impl Iterator for LocalIterator {
@@ -35,26 +35,47 @@ impl Iterator for LocalIterator {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ref id) = self.query.id {
             dbg!(&id);
-            if let Some(dir) = self.reader.next() {
-                dbg!(&dir);
-                let path = dir.unwrap().path();
-                if path.is_dir() {
-                    let path_str = path.to_str().unwrap();
-                    if path_str == id {
-                        // TODO: scan for latest file
-                        return Some(Box::new(LocalEntry {
-                            article: Article {
-                                id: Some(id.clone()),
-                                name: String::new(),
-                                title: String::new(),
-                                body: String::new(),
-                                properties: PropertySet::new(),
-                                tags: HashSet::new(),
-                            },
-                            path: path.to_path_buf(),
-                        }));
-                    }
+            if let Some(entry) = self.walker.next() {
+                let entry = entry.unwrap();
+                dbg!(&entry);
+                let entry_path = entry.file_name().to_str().unwrap().to_owned();
+                dbg!(&entry_path);
+
+                if &entry_path == id {
+                    return Some(Box::new(LocalEntry {
+                        article: Article {
+                            id: Some(id.clone()),
+                            name: String::new(),
+                            title: String::new(),
+                            body: String::new(),
+                            properties: PropertySet::new(),
+                            tags: HashSet::new(),
+                        },
+                        path: entry.path().to_path_buf(),
+                    }));
                 }
+
+                // if let Some(remainder) = entry_path.strip_prefix(&location_str) {
+
+                // let path = dir.unwrap();
+                // dbg!(&path);
+                // if path.file_type().is_dir() {
+                //     let path_str = path.to_str().unwrap();
+                //     if path_str == id {
+                //         // TODO: scan for latest file
+                //         return Some(Box::new(LocalEntry {
+                //             article: Article {
+                //                 id: Some(id.clone()),
+                //                 name: String::new(),
+                //                 title: String::new(),
+                //                 body: String::new(),
+                //                 properties: PropertySet::new(),
+                //                 tags: HashSet::new(),
+                //             },
+                //             path: path.to_path_buf(),
+                //         }));
+                //     }
+                // }
             }
         } else {
             // Empty query means get everything, we use the date index to return most recent
@@ -86,16 +107,17 @@ impl Index for Local {
         let now: DateTime<Utc> = article.timestamp().parse().unwrap();
 
         // TODO: path is full we wanna clip off the article here
-        let article_location = self.path.join(format!(
+        let article_location = format!(
             "articles/{}/{}.html.hbs",
-            now.format("%Y/%m/%d"),
+            now.format("%Y%m%d"),
             &article_file_name(&article.name)
-        ));
+        );
         let path = Path::new(&article_location);
         let dir = path.parent().unwrap();
-        create_dir_all(&dir)?;
+        update_dir_trie(&self.path, dir)?;
+        // create_dir_all(&dir)?;
 
-        let mut article_file = File::create(&article_location)?;
+        let mut article_file = File::create(&self.path.join(&article_location))?;
         article_file.write_all(article.body.as_bytes())?;
 
         // 3 different kinds of attributes
@@ -106,12 +128,13 @@ impl Index for Local {
         // let name = article.name {
 
         if let Some(id) = &article.id {
-            let id_index_location = self.path.join(format!("index/id/{}/location", id));
-            let dir = id_index_location.parent().unwrap();
-            create_dir_all(dir)?;
+            let id_index_location = format!("index/id/{}/location", id);
+            let path = Path::new(&id_index_location);
+            let dir = path.parent().unwrap();
+            update_dir_trie(&self.path, dir)?;
 
-            let mut id_index_file = File::create(id_index_location)?;
-            id_index_file.write_all(article_location.as_os_str().as_bytes())?;
+            let mut id_index_file = File::create(&self.path.join(&id_index_location))?;
+            id_index_file.write_all(article_location.as_str().as_bytes())?;
         }
 
         // for tag in article.tags.iter() {
@@ -166,7 +189,10 @@ impl Index for Local {
         println!("reading directory {:?}", &self.path);
         Ok(Box::new(LocalIterator {
             query: query.clone(),
-            reader: read_dir(&self.path)?,
+            walker: WalkDir::new(&self.path.join("index/id"))
+                .sort_by_file_name()
+                .min_depth(1)
+                .into_iter(),
         }))
     }
 }
@@ -192,19 +218,44 @@ fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<()> {
         .into_iter()
     {
         let entry = entry?;
-        let entry_path = entry.file_name().to_str().unwrap().to_owned();
-        let location_str = location.to_str().unwrap();
-        if let Some(remainder) = entry_path.strip_prefix(&location_str) {
-            let new_path = root.join(location.join(remainder));
-            create_dir_all(&new_path)?;
-            move_contents(entry.path(), &new_path)?;
-            return remove_dir(&entry.path());
-        } else if let Some(remainder) = location_str.strip_prefix(&entry_path) {
-            return update_dir_trie(entry.path(), Path::new(remainder));
+
+        match common_prefix(
+            entry.file_name().to_str().unwrap(),
+            location.to_str().unwrap(),
+        ) {
+            (prefix, suffix, remainder) if prefix.is_empty() => {
+                assert!(!suffix.is_empty());
+                assert!(!remainder.is_empty());
+                continue;
+            }
+            (prefix, suffix, remainder) if !suffix.is_empty() => {
+                let new_root = root.join(Path::new(prefix));
+                let new_path = new_root.join(suffix);
+
+                create_dir_all(&new_path)?;
+                if !remainder.is_empty() {
+                    update_dir_trie(&new_root, Path::new(remainder))?;
+                }
+                move_contents(entry.path(), &new_path)?;
+                return remove_dir(&entry.path());
+            }
+            (_, _, remainder) if !remainder.is_empty() => {
+                return update_dir_trie(entry.path(), Path::new(remainder));
+            }
+            m => unreachable!("attempted to store empty limb in trie {:?}", m),
         }
     }
-    dbg!(&location);
-    create_dir_all(root.join(location))
+    create_dir_all(&root.join(location))
+}
+
+fn common_prefix<'a, 'b>(a: &'a str, b: &'b str) -> (&'b str, &'a str, &'b str) {
+    eprintln!("common_prefix({}, {})", a, b);
+    let at = a.chars().zip(b.chars()).take_while(|(x, y)| x == y).count();
+    (
+        b.get(..at).unwrap(),
+        a.get(at..).unwrap(),
+        b.get(at..).unwrap(),
+    )
 }
 
 fn article_file_name(path: &str) -> Cow<str> {
@@ -244,8 +295,16 @@ mod tests {
     }
 
     #[test]
+    fn test_common_prefix() {
+        assert_eq!(common_prefix("a", "b"), ("", "a", "b"));
+        assert_eq!(common_prefix("a", "a"), ("a", "", ""));
+        assert_eq!(common_prefix("aa", "aa"), ("aa", "", ""));
+        assert_eq!(common_prefix("aab", "aac"), ("aa", "b", "c"));
+    }
+
+    #[test]
     fn test_update_dir_trie() {
-        let temp = TempDir::new("").unwrap();
+        let temp = TempDir::new("update_dir_trie_test").unwrap();
         let root = temp.path().to_owned();
         assert!(enumerate_dirs(&root).is_empty());
 
@@ -287,6 +346,19 @@ mod tests {
         assert_eq!(
             enumerate_dirs(&root),
             ["a", "a/b", "b", "c", "c/a", "c/a/a", "c/a/a/b", "d", "d/a"]
+        );
+
+        // Tests where two paths have a shared root but don't neatly fit into each other
+        update_dir_trie(&root, Path::new("eea")).unwrap();
+        assert_eq!(
+            enumerate_dirs(&root),
+            ["a", "a/b", "b", "c", "c/a", "c/a/a", "c/a/a/b", "d", "d/a", "eea"]
+        );
+
+        update_dir_trie(&root, Path::new("eeb")).unwrap();
+        assert_eq!(
+            enumerate_dirs(&root),
+            ["a", "a/b", "b", "c", "c/a", "c/a/a", "c/a/a/b", "d", "d/a", "ee", "ee/a", "ee/b"]
         );
     }
 }
