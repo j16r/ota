@@ -1,13 +1,11 @@
-use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fs::{create_dir_all, remove_dir, rename, File};
 use std::io::Write;
-use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use regex::Regex;
+use uuid::Uuid;
 use walkdir::WalkDir;
 
 use crate::articles::{Article, PropertySet};
@@ -26,7 +24,8 @@ impl Local {
 
 pub struct LocalIterator {
     query: Query,
-    walker: walkdir::IntoIter,
+    articles_walker: walkdir::IntoIter,
+    id_walker: walkdir::IntoIter,
 }
 
 impl Iterator for LocalIterator {
@@ -37,22 +36,19 @@ impl Iterator for LocalIterator {
             dbg!(&id);
 
             loop {
-                if let Some(entry) = self.walker.next() {
+                if let Some(entry) = self.id_walker.next() {
                     let entry = entry.unwrap();
                     if !entry.file_type().is_dir() {
                         continue;
                     }
 
-                    match common_prefix(
-                        entry.file_name().to_str().unwrap(),
-                        id,
-                    ) {
+                    match common_prefix(entry.file_name().to_str().unwrap(), id) {
                         (_, _, remainder) if remainder.is_empty() => {
                             dbg!(&remainder);
                             return Some(Box::new(LocalEntry {
                                 article: Article {
-                                    id: Some(id.clone()),
-                                    name: String::new(),
+                                    key: Uuid::new_v4(),
+                                    id: id.to_owned(),
                                     title: String::new(),
                                     body: String::new(),
                                     properties: PropertySet::new(),
@@ -60,7 +56,7 @@ impl Iterator for LocalIterator {
                                 },
                                 path: entry.path().to_owned(),
                             }));
-                        },
+                        }
                         m => unreachable!("attempted to lookup empty limb in trie {:?}", m),
                     }
                 } else {
@@ -68,22 +64,8 @@ impl Iterator for LocalIterator {
                 }
             }
 
-        } else if let Some(entry) = self.walker.next() {
-
-            let entry = entry.unwrap();
-
-            return Some(Box::new(LocalEntry {
-                article: Article {
-                    id: None,
-                    name: String::new(),
-                    title: String::new(),
-                    body: String::new(),
-                    properties: PropertySet::new(),
-                    tags: HashSet::new(),
-                },
-                path: entry.path().to_owned(),
-            }));
-
+            // All case
+        } else if let Some(_entry) = self.articles_walker.next() {
         }
 
         None
@@ -115,17 +97,13 @@ impl Index for Local {
     fn update(&mut self, article: &Article) -> Result<Box<dyn Entry>> {
         let now: DateTime<Utc> = article.timestamp().parse().unwrap();
 
-        // TODO: path is full we wanna clip off the article here
+        let key = article.key.to_simple().to_string();
         let article_root = self.path.join("articles");
         create_dir_all(&article_root)?;
-        let path = update_dir_trie(&article_root, &Path::new(&datetime_to_filename(&now)))?;
+        let path = update_dir_trie(&article_root, Path::new(&key))?;
 
         dbg!(&path);
-        let article_filename = format!(
-            "{}.html.hbs",
-            &article_file_name(&article.name)
-        );
-        let article_path = path.join(&article_filename);
+        let article_path = path.join(format!("{}.html.hbs", &datetime_to_filename(&now)));
         let mut article_file = File::create(&article_path)?;
         article_file.write_all(article.body.as_bytes())?;
 
@@ -134,31 +112,34 @@ impl Index for Local {
         // tags strings, not unique per article
         // properties are key:value, keys are unique, values are not
 
-        // let name = article.name {
+        let key_root = self.path.join("index/key");
+        create_dir_all(&key_root)?;
+        let path = update_dir_trie(&key_root, Path::new(&key))?;
 
-        if let Some(id) = &article.id {
-            let root = self.path.join("index/id");
-            create_dir_all(&root)?;
-            let path = update_dir_trie(&root, Path::new(id))?;
+        let mut key_index_file = File::create(&path.join("key"))?;
+        key_index_file.write_all(key.as_bytes())?;
 
-            let mut id_index_file = File::create(&path.join("location"))?;
-            id_index_file.write_all(article_path.to_str().unwrap().as_bytes())?;
-        }
+        let id_root = self.path.join("index/id");
+        create_dir_all(&id_root)?;
+        let path = update_dir_trie(&id_root, Path::new(&article.id))?;
 
-        for tag in article.tags.iter() {
-            let root = self.path.join("index/tag");
-            create_dir_all(&root)?;
-            let path = update_dir_trie(&root, Path::new(tag))?;
+        let mut id_index_file = File::create(&path.join("id"))?;
+        id_index_file.write_all(article.id.as_bytes())?;
 
-            let mut id_index_file = File::create(&path.join("location"))?;
-            id_index_file.write_all(article_path.to_str().unwrap().as_bytes())?;
-        }
+        // for tag in article.tags.iter() {
+        //     let root = self.path.join("index/tag");
+        //     create_dir_all(&root)?;
+        //     let path = update_dir_trie(&root, Path::new(tag))?;
+
+        //     let mut id_index_file = File::create(&path.join("location"))?;
+        //     id_index_file.write_all(article_path.to_str().unwrap().as_bytes())?;
+        // }
 
         // for (key, value) in article.properties.iter() {
         // }
 
         Ok(Box::new(LocalEntry {
-            path: path.to_path_buf(),
+            path,
             article: article.clone(),
         }))
     }
@@ -167,7 +148,11 @@ impl Index for Local {
     fn search(&mut self, query: &Query) -> Result<Box<dyn Iterator<Item = Box<dyn Entry>>>> {
         Ok(Box::new(LocalIterator {
             query: query.clone(),
-            walker: WalkDir::new(&self.path.join("index/id"))
+            articles_walker: WalkDir::new(&self.path.join("articles"))
+                .sort_by_file_name()
+                .min_depth(1)
+                .into_iter(),
+            id_walker: WalkDir::new(&self.path.join("index/id"))
                 .sort_by_file_name()
                 .min_depth(1)
                 .into_iter(),
@@ -215,7 +200,7 @@ fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<PathBuf> {
                 if !remainder.is_empty() {
                     return update_dir_trie(&new_root, Path::new(remainder));
                 }
-                return Ok(new_root.to_owned());
+                return Ok(new_root);
             }
             (_, _, remainder) if !remainder.is_empty() => {
                 return update_dir_trie(entry.path(), Path::new(remainder));
@@ -225,7 +210,7 @@ fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<PathBuf> {
     }
     let new_path = root.join(location);
     create_dir_all(&new_path)?;
-    Ok(new_path.to_owned())
+    Ok(new_path)
 }
 
 fn common_prefix<'a, 'b>(a: &'a str, b: &'b str) -> (&'b str, &'a str, &'b str) {
@@ -235,11 +220,6 @@ fn common_prefix<'a, 'b>(a: &'a str, b: &'b str) -> (&'b str, &'a str, &'b str) 
         a.get(at..).unwrap(),
         b.get(at..).unwrap(),
     )
-}
-
-fn article_file_name(path: &str) -> Cow<str> {
-    let article_filename_regex = Regex::new(r"[^A-Za-z0-9]+").unwrap();
-    article_filename_regex.replace_all(path, "_")
 }
 
 #[cfg(test)]
@@ -263,14 +243,6 @@ mod tests {
             })
             .filter(|s| !s.is_empty())
             .collect()
-    }
-
-    #[test]
-    fn test_article_file_name() {
-        assert_eq!(article_file_name("abcd"), "abcd");
-        assert_eq!(article_file_name("a!@#bcd"), "a_bcd");
-        assert_eq!(article_file_name("number 10"), "number_10");
-        assert_eq!(article_file_name(""), "");
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fs::File;
@@ -8,8 +9,10 @@ use chrono::prelude::*;
 use handlebars::RenderError;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use regex::Regex;
 use rocket::form::FromForm;
 use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::index::{self, Index};
 use crate::query::Query;
@@ -18,30 +21,23 @@ pub type PropertySet = HashMap<String, String>;
 
 #[derive(Clone, Default, Debug, Serialize)]
 pub struct Article {
-    pub id: Option<String>,
-    pub name: String,
+    pub key: Uuid,
+    pub id: String,
     pub title: String,
     pub body: String,
     pub properties: PropertySet,
     pub tags: HashSet<String>,
 }
 
-fn random_string() -> String {
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(30)
-        .map(char::from)
-        .collect()
-}
-
 impl Article {
+    // TODO: NewArticleRequest is untrusted so should be validated / sanitized
     pub fn new(request: &NewArticleRequest) -> Article {
-        let name = Self::generate_name(&request.title);
         let mut article = Article {
-            name,
+            key: Uuid::new_v4(),
+            // TODO: ID should be optionally specified by user, or generated if not as a slug
+            id: request.id.clone(), //slug_from_title(&request.title).to_string(),
             title: request.title.clone(),
             body: request.body.clone(),
-            id: request.id.clone(),
             ..Default::default()
         };
         for property in request.properties.split_whitespace() {
@@ -53,16 +49,6 @@ impl Article {
             article.tags.insert(tag.into());
         }
         article
-    }
-
-    fn generate_name(text: &str) -> String {
-        for line in text.lines() {
-            let name = line.trim();
-            if !name.is_empty() {
-                return name.to_string();
-            }
-        }
-        format!("article-{}", random_string())
     }
 
     fn add_default_properties(properties: &mut PropertySet) {
@@ -83,11 +69,24 @@ impl Article {
     }
 }
 
+fn random_string() -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
+}
+
+fn slug_from_title(title: &str) -> Cow<str> {
+    let scrubbing_regex = Regex::new(r"[^A-Za-z0-9]+").unwrap();
+    scrubbing_regex.replace_all(title, "_")
+}
+
 #[derive(Serialize, Default, Deserialize, FromForm, Debug)]
 pub struct NewArticleRequest {
+    pub id: String,
     pub title: String,
     pub body: String,
-    pub id: Option<String>,
     pub properties: String,
     pub tags: String,
 }
@@ -149,8 +148,15 @@ mod tests {
     #[test]
     fn test_new() {
         Article::new(&NewArticleRequest {
-            id: Some("main".to_string()),
             ..Default::default()
         });
+    }
+
+    #[test]
+    fn test_slug() {
+        assert_eq!(slug_from_title("abcd"), "abcd");
+        assert_eq!(slug_from_title("a!@#bcd"), "a_bcd");
+        assert_eq!(slug_from_title("number 10"), "number_10");
+        assert_eq!(slug_from_title(""), "");
     }
 }

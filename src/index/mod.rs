@@ -46,7 +46,7 @@ mod tests {
         let mut index = Local::new(dir.path()).unwrap();
 
         let article = Article::new(&NewArticleRequest {
-            id: Some("main".to_string()),
+            id: "main".to_string(),
             ..Default::default()
         });
 
@@ -58,6 +58,6 @@ mod tests {
             .map(|e| e.article())
             .collect();
         assert!(result.len() == 1);
-        assert_eq!(result[0].id, Some("main".to_string()));
+        assert_eq!(result[0].id, "main");
     }
 }
