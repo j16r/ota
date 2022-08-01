@@ -1,4 +1,0 @@
-Stuff to do next:
-
-The ID is accepted as a raw string e.g: "I don't remember" and this tries to save the index, this should probably be its own ID type that is sanitized.
-Collisions? When we index do we re-balance the tree so to speak?
