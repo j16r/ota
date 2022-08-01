@@ -97,7 +97,7 @@ impl Index for Local {
     fn update(&mut self, article: &Article) -> Result<Box<dyn Entry>> {
         let now: DateTime<Utc> = article.timestamp().parse().unwrap();
 
-        let key = article.key.to_simple().to_string();
+        let key = article.key.simple().to_string();
         let article_root = self.path.join("articles");
         create_dir_all(&article_root)?;
         let path = update_dir_trie(&article_root, Path::new(&key))?;
