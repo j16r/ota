@@ -65,10 +65,41 @@ impl Iterator for LocalIterator {
             }
 
             // All case
-        } else if let Some(_entry) = self.articles_walker.next() {
+        } else {
+            loop {
+                if let Some(entry) = self.id_walker.next() {
+                    dbg!(&entry);
+                    let entry = match entry {
+                        Ok(e) => e,
+                        Err(err) => {
+                            if let Some(e) = err.io_error() {
+                                if e.kind() == std::io::ErrorKind::NotFound {
+                                    return None;
+                                }
+                            }
+                            unimplemented!("non fallible iterator failed");
+                        }
+                    };
+                    if !entry.file_type().is_file() {
+                        continue;
+                    }
+                    let id = entry.file_name().to_str().unwrap();
+                    return Some(Box::new(LocalEntry {
+                        article: Article {
+                            key: Uuid::new_v4(),
+                            id: id.to_owned(),
+                            title: String::new(),
+                            body: String::new(),
+                            properties: PropertySet::new(),
+                            tags: HashSet::new(),
+                        },
+                        path: entry.path().to_owned(),
+                    }));
+                } else {
+                    return None;
+                }
+            }
         }
-
-        None
     }
 }
 
@@ -107,11 +138,6 @@ impl Index for Local {
         let mut article_file = File::create(&article_path)?;
         article_file.write_all(article.body.as_bytes())?;
 
-        // 3 different kinds of attributes
-        // ids: unique/discrete, best to index in a trie
-        // tags strings, not unique per article
-        // properties are key:value, keys are unique, values are not
-
         let key_root = self.path.join("index/key");
         create_dir_all(&key_root)?;
         let path = update_dir_trie(&key_root, Path::new(&key))?;
@@ -126,17 +152,14 @@ impl Index for Local {
         let mut id_index_file = File::create(&path.join("id"))?;
         id_index_file.write_all(article.id.as_bytes())?;
 
-        // for tag in article.tags.iter() {
-        //     let root = self.path.join("index/tag");
-        //     create_dir_all(&root)?;
-        //     let path = update_dir_trie(&root, Path::new(tag))?;
+        for tag in article.tags.iter() {
+            let tag_root = self.path.join("index/tags");
+            create_dir_all(&tag_root)?;
+            let path = update_dir_trie(&tag_root, Path::new(&tag))?;
 
-        //     let mut id_index_file = File::create(&path.join("location"))?;
-        //     id_index_file.write_all(article_path.to_str().unwrap().as_bytes())?;
-        // }
-
-        // for (key, value) in article.properties.iter() {
-        // }
+            let mut tag_index_file = File::create(&path.join("tag"))?;
+            tag_index_file.write_all(tag.as_bytes())?;
+        }
 
         Ok(Box::new(LocalEntry {
             path,

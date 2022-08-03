@@ -10,6 +10,12 @@ pub struct Query {
     pub tags: Vec<String>,
 }
 
+pub const ALL: &Query = &Query {
+    id: None,
+    properties: vec![],
+    tags: vec![],
+};
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PropertyFilter {
     field: String,

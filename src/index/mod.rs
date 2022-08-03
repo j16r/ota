@@ -5,7 +5,7 @@ use anyhow::Result;
 use thiserror::Error;
 
 use crate::articles::Article;
-use crate::query::Query;
+use crate::query::{self, Query};
 
 pub trait Entry {
     fn article(&self) -> Article;
@@ -45,6 +45,8 @@ mod tests {
         let dir = TempDir::new("index_test").unwrap();
         let mut index = Local::new(dir.path()).unwrap();
 
+        assert!(!index.search(query::ALL).unwrap().any(|_| true));
+
         let article = Article::new(&NewArticleRequest {
             id: "main".to_string(),
             ..Default::default()
@@ -52,12 +54,24 @@ mod tests {
 
         index.update(&article).unwrap();
 
+        assert_eq!(1, index.search(query::ALL).unwrap().count());
+
         let result: Vec<Article> = index
             .search(&"@main".try_into().unwrap())
             .unwrap()
             .map(|e| e.article())
             .collect();
         assert!(result.len() == 1);
+        dbg!(&result[0]);
         assert_eq!(result[0].id, "main");
+
+        let result: Vec<Article> = index
+            .search(&"tag1".try_into().unwrap())
+            .unwrap()
+            .map(|e| e.article())
+            .collect();
+        assert!(result.len() == 1);
+        dbg!(&result[0]);
+        assert_eq!(1, result[0].tags.len());
     }
 }
