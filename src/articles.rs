@@ -40,7 +40,6 @@ impl Article {
             body: request.body.clone(),
             properties: PropertySet::new(),
             tags: HashSet::new(),
-            // ..Default::default()
         };
         for property in request.properties.split_whitespace() {
             let (key, value) = property.split_once(':').unwrap();
