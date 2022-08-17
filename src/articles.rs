@@ -70,14 +70,6 @@ impl Article {
     }
 }
 
-fn random_string() -> String {
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(30)
-        .map(char::from)
-        .collect()
-}
-
 fn slug_from_title(title: &str) -> Cow<str> {
     let scrubbing_regex = Regex::new(r"[^A-Za-z0-9]+").unwrap();
     scrubbing_regex.replace_all(title, "_")
