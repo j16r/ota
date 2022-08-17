@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use rusty_ulid::Ulid;
 use walkdir::WalkDir;
 
 use crate::articles::{Article, PropertySet};
@@ -47,7 +47,7 @@ impl Iterator for LocalIterator {
                             dbg!(&remainder);
                             return Some(Box::new(LocalEntry {
                                 article: Article {
-                                    key: Uuid::new_v4(),
+                                    key: Ulid::generate(),
                                     id: id.to_owned(),
                                     title: String::new(),
                                     body: String::new(),
@@ -86,7 +86,7 @@ impl Iterator for LocalIterator {
                     let id = entry.file_name().to_str().unwrap();
                     return Some(Box::new(LocalEntry {
                         article: Article {
-                            key: Uuid::new_v4(),
+                            key: Ulid::generate(),
                             id: id.to_owned(),
                             title: String::new(),
                             body: String::new(),
@@ -128,7 +128,7 @@ impl Index for Local {
     fn update(&mut self, article: &Article) -> Result<Box<dyn Entry>> {
         let now: DateTime<Utc> = article.timestamp().parse().unwrap();
 
-        let key = article.key.simple().to_string();
+        let key = article.key.to_string();
         let article_root = self.path.join("articles");
         create_dir_all(&article_root)?;
         let path = update_dir_trie(&article_root, Path::new(&key))?;

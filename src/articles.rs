@@ -11,17 +11,17 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use regex::Regex;
 use rocket::form::FromForm;
+use rusty_ulid::Ulid;
 use serde_derive::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::index::{self, Index};
 use crate::query::Query;
 
 pub type PropertySet = HashMap<String, String>;
 
-#[derive(Clone, Default, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Article {
-    pub key: Uuid,
+    pub key: Ulid,
     pub id: String,
     pub title: String,
     pub body: String,
@@ -33,12 +33,14 @@ impl Article {
     // TODO: NewArticleRequest is untrusted so should be validated / sanitized
     pub fn new(request: &NewArticleRequest) -> Article {
         let mut article = Article {
-            key: Uuid::new_v4(),
+            key: Ulid::generate(),
             // TODO: ID should be optionally specified by user, or generated if not as a slug
             id: request.id.clone(), //slug_from_title(&request.title).to_string(),
             title: request.title.clone(),
             body: request.body.clone(),
-            ..Default::default()
+            properties: PropertySet::new(),
+            tags: HashSet::new(),
+            // ..Default::default()
         };
         for property in request.properties.split_whitespace() {
             let (key, value) = property.split_once(':').unwrap();
