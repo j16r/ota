@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fs::{self, create_dir_all, remove_dir, rename, File};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -91,11 +91,9 @@ impl LocalIterator {
                         continue;
                     }
                     let entry_path = entry.path();
-                    let key: Ulid = entry_path.file_prefix().unwrap().to_str().unwrap().parse().unwrap();
-                    let entry_parent = entry_path.parent().unwrap();
-                    let mut article: Article = serde_yaml::from_str(&fs::read_to_string(&entry_path)?)?;
+                    let article: Article = serde_yaml::from_str(&fs::read_to_string(&entry_path)?)?;
                     return Ok(Some(Box::new(LocalEntry {
-                        article, 
+                        article,
                         path: entry.path().to_owned(),
                     })));
                 } else {
