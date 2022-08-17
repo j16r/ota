@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use chrono::prelude::*;
 use handlebars::RenderError;
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
 use regex::Regex;
 use rocket::form::FromForm;
 use rusty_ulid::Ulid;

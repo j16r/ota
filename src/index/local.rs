@@ -64,6 +64,12 @@ impl Iterator for LocalIterator {
                 }
             }
 
+            // Tags specified
+        } else if !self.query.tags.is_empty() {
+            eprintln!("Searching for tags {:?}", self.query.tags);
+
+            None
+
             // All case
         } else {
             loop {
@@ -81,9 +87,11 @@ impl Iterator for LocalIterator {
                         }
                     };
                     if !entry.file_type().is_file() {
+                        eprintln!("is_file");
                         continue;
                     }
                     let id = entry.file_name().to_str().unwrap();
+                    dbg!(&id);
                     return Some(Box::new(LocalEntry {
                         article: Article {
                             key: Ulid::generate(),
