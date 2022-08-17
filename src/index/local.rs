@@ -34,7 +34,18 @@ impl LocalIterator {
         if let Some(ref id) = self.query.id {
             loop {
                 if let Some(entry) = self.id_walker.next() {
-                    let entry = entry?;
+                    let entry = match entry {
+                        Ok(e) => e,
+                        Err(err) => {
+                            if let Some(e) = err.io_error() {
+                                // Special case: no index exists on disk
+                                if e.kind() == std::io::ErrorKind::NotFound {
+                                    return Ok(None);
+                                }
+                            }
+                            return Err(err.into());
+                        }
+                    };
                     if !entry.file_type().is_dir() {
                         continue;
                     }
@@ -91,7 +102,7 @@ impl LocalIterator {
                     let article: Article = serde_yaml::from_str(&fs::read_to_string(&entry_path)?)?;
                     return Ok(Some(Box::new(LocalEntry {
                         article,
-                        path: entry.path().to_owned(),
+                        path: entry_path.to_path_buf(),
                     })));
                 } else {
                     return Ok(None);
