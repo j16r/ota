@@ -34,17 +34,14 @@ impl LocalIterator {
         if let Some(ref id) = self.query.id {
             loop {
                 if let Some(entry) = self.id_walker.next() {
-                    let entry = entry.unwrap();
+                    let entry = entry?;
                     if !entry.file_type().is_dir() {
                         continue;
                     }
 
                     match common_prefix(entry.file_name().to_str().unwrap(), id) {
                         (_, _, remainder) if remainder.is_empty() => {
-                            let key: Ulid = fs::read_to_string(entry.path().join("id"))
-                                .unwrap()
-                                .parse()
-                                .unwrap();
+                            let key: Ulid = fs::read_to_string(entry.path().join("id"))?.parse()?;
                             return Ok(Some(Box::new(LocalEntry {
                                 article: Article {
                                     key,
