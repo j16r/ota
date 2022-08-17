@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::fs::{create_dir_all, remove_dir, rename, File};
+use std::fs::{self, create_dir_all, remove_dir, rename, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -33,8 +33,6 @@ impl Iterator for LocalIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ref id) = self.query.id {
-            dbg!(&id);
-
             loop {
                 if let Some(entry) = self.id_walker.next() {
                     let entry = entry.unwrap();
@@ -44,10 +42,13 @@ impl Iterator for LocalIterator {
 
                     match common_prefix(entry.file_name().to_str().unwrap(), id) {
                         (_, _, remainder) if remainder.is_empty() => {
-                            dbg!(&remainder);
+                            let key: Ulid = fs::read_to_string(entry.path().join("id"))
+                                .unwrap()
+                                .parse()
+                                .unwrap();
                             return Some(Box::new(LocalEntry {
                                 article: Article {
-                                    key: Ulid::generate(),
+                                    key,
                                     id: id.to_owned(),
                                     title: String::new(),
                                     body: String::new(),
@@ -74,7 +75,6 @@ impl Iterator for LocalIterator {
         } else {
             loop {
                 if let Some(entry) = self.id_walker.next() {
-                    dbg!(&entry);
                     let entry = match entry {
                         Ok(e) => e,
                         Err(err) => {
@@ -91,7 +91,6 @@ impl Iterator for LocalIterator {
                         continue;
                     }
                     let id = entry.file_name().to_str().unwrap();
-                    dbg!(&id);
                     return Some(Box::new(LocalEntry {
                         article: Article {
                             key: Ulid::generate(),
@@ -141,7 +140,6 @@ impl Index for Local {
         create_dir_all(&article_root)?;
         let path = update_dir_trie(&article_root, Path::new(&key))?;
 
-        dbg!(&path);
         let article_path = path.join(format!("{}.html.hbs", &datetime_to_filename(&now)));
         let mut article_file = File::create(&article_path)?;
         article_file.write_all(article.body.as_bytes())?;
@@ -158,7 +156,7 @@ impl Index for Local {
         let path = update_dir_trie(&id_root, Path::new(&article.id))?;
 
         let mut id_index_file = File::create(&path.join("id"))?;
-        id_index_file.write_all(article.id.as_bytes())?;
+        id_index_file.write_all(key.as_bytes())?;
 
         for tag in article.tags.iter() {
             let tag_root = self.path.join("index/tags");
@@ -222,7 +220,6 @@ fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<PathBuf> {
                 continue;
             }
             (prefix, suffix, remainder) if !suffix.is_empty() => {
-                dbg!(&prefix, &suffix, &remainder);
                 let new_root = root.join(Path::new(prefix));
                 let new_path = new_root.join(suffix);
                 create_dir_all(&new_path)?;
