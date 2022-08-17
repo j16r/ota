@@ -1,3 +1,5 @@
+#![feature(path_file_prefix)]
+
 mod articles;
 mod error;
 mod index;

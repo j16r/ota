@@ -18,6 +18,7 @@ rusty_ulid = { version = "*", features = [ "serde" ] }
 serde = "*"
 serde_derive = "*"
 serde_json = "*"
+serde_yaml = "*"
 thiserror = "*"
 walkdir = "*"
 

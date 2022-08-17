@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 use std::fs::{self, create_dir_all, remove_dir, rename, File};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rusty_ulid::Ulid;
+use serde_yaml;
 use walkdir::WalkDir;
 
 use crate::articles::{Article, PropertySet};
@@ -28,10 +29,8 @@ pub struct LocalIterator {
     id_walker: walkdir::IntoIter,
 }
 
-impl Iterator for LocalIterator {
-    type Item = Box<dyn Entry>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+impl LocalIterator {
+    fn try_next(&mut self) -> Result<Option<<LocalIterator as Iterator>::Item>> {
         if let Some(ref id) = self.query.id {
             loop {
                 if let Some(entry) = self.id_walker.next() {
@@ -46,7 +45,7 @@ impl Iterator for LocalIterator {
                                 .unwrap()
                                 .parse()
                                 .unwrap();
-                            return Some(Box::new(LocalEntry {
+                            return Ok(Some(Box::new(LocalEntry {
                                 article: Article {
                                     key,
                                     id: id.to_owned(),
@@ -56,12 +55,12 @@ impl Iterator for LocalIterator {
                                     tags: HashSet::new(),
                                 },
                                 path: entry.path().to_owned(),
-                            }));
+                            })));
                         }
                         m => unreachable!("attempted to lookup empty limb in trie {:?}", m),
                     }
                 } else {
-                    return None;
+                    return Ok(None);
                 }
             }
 
@@ -69,44 +68,49 @@ impl Iterator for LocalIterator {
         } else if !self.query.tags.is_empty() {
             eprintln!("Searching for tags {:?}", self.query.tags);
 
-            None
+            return Ok(None);
 
             // All case
         } else {
             loop {
-                if let Some(entry) = self.id_walker.next() {
+                if let Some(entry) = self.articles_walker.next() {
                     let entry = match entry {
                         Ok(e) => e,
                         Err(err) => {
                             if let Some(e) = err.io_error() {
+                                // Special case: no index exists on disk
                                 if e.kind() == std::io::ErrorKind::NotFound {
-                                    return None;
+                                    return Ok(None);
                                 }
                             }
-                            unimplemented!("non fallible iterator failed");
+                            return Err(err.into());
                         }
                     };
+                    dbg!(&entry);
                     if !entry.file_type().is_file() {
-                        eprintln!("is_file");
                         continue;
                     }
-                    let id = entry.file_name().to_str().unwrap();
-                    return Some(Box::new(LocalEntry {
-                        article: Article {
-                            key: Ulid::generate(),
-                            id: id.to_owned(),
-                            title: String::new(),
-                            body: String::new(),
-                            properties: PropertySet::new(),
-                            tags: HashSet::new(),
-                        },
+                    let entry_path = entry.path();
+                    let key: Ulid = entry_path.file_prefix().unwrap().to_str().unwrap().parse().unwrap();
+                    let entry_parent = entry_path.parent().unwrap();
+                    let mut article: Article = serde_yaml::from_str(&fs::read_to_string(&entry_path)?)?;
+                    return Ok(Some(Box::new(LocalEntry {
+                        article, 
                         path: entry.path().to_owned(),
-                    }));
+                    })));
                 } else {
-                    return None;
+                    return Ok(None);
                 }
             }
         }
+    }
+}
+
+impl Iterator for LocalIterator {
+    type Item = Box<dyn Entry>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.try_next().unwrap()
     }
 }
 
@@ -138,11 +142,11 @@ impl Index for Local {
         let key = article.key.to_string();
         let article_root = self.path.join("articles");
         create_dir_all(&article_root)?;
-        let path = update_dir_trie(&article_root, Path::new(&key))?;
+        let path = update_dir_trie(&article_root, Path::new(&datetime_to_filename(&now)))?;
 
-        let article_path = path.join(format!("{}.html.hbs", &datetime_to_filename(&now)));
+        let article_path = path.join(format!("{}.yaml", key));
         let mut article_file = File::create(&article_path)?;
-        article_file.write_all(article.body.as_bytes())?;
+        article_file.write_all(serde_yaml::to_string(&article)?.as_bytes())?;
 
         let key_root = self.path.join("index/key");
         create_dir_all(&key_root)?;

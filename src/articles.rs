@@ -17,7 +17,7 @@ use crate::query::Query;
 
 pub type PropertySet = HashMap<String, String>;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Article {
     pub key: Ulid,
     pub id: String,

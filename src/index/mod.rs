@@ -45,8 +45,6 @@ mod tests {
         let dir = TempDir::new("index_test").unwrap();
         let mut index = Local::new(dir.path()).unwrap();
 
-        assert!(!index.search(query::ALL).unwrap().any(|_| true));
-
         let article = Article::new(&NewArticleRequest {
             id: "main".to_string(),
             ..Default::default()
@@ -61,9 +59,44 @@ mod tests {
             .unwrap()
             .map(|e| e.article())
             .collect();
-        assert!(result.len() == 1);
+        assert_eq!(1, result.len());
         dbg!(&result[0]);
         assert_eq!(result[0].id, "main");
+
+        // let result: Vec<Article> = index
+        //     .search(&"tag1".try_into().unwrap())
+        //     .unwrap()
+        //     .map(|e| e.article())
+        //     .collect();
+        // assert!(result.len() == 1);
+        // dbg!(&result[0]);
+        // assert_eq!(1, result[0].tags.len());
+    }
+
+    #[test]
+    fn test_index_all() {
+        let dir = TempDir::new("index_all_test").unwrap();
+        let mut index = Local::new(dir.path()).unwrap();
+
+        assert!(!index.search(query::ALL).unwrap().any(|_| true));
+
+        let article = Article::new(&NewArticleRequest {
+            id: "main".to_string(),
+            body: "body text".to_string(),
+            ..Default::default()
+        });
+
+        index.update(&article).unwrap();
+
+        let result: Vec<Article> = index
+            .search(query::ALL)
+            .unwrap()
+            .map(|e| e.article())
+            .collect();
+        assert_eq!(1, result.len());
+        dbg!(&result[0]);
+        assert_eq!(result[0].id, "main");
+        assert!(!result[0].body.is_empty());
 
         // let result: Vec<Article> = index
         //     .search(&"tag1".try_into().unwrap())
