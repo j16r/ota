@@ -17,6 +17,7 @@ use rocket_dyn_templates::Template;
 use crate::articles::{Article, NewArticleRequest};
 use crate::index::{local::Local, Index};
 use crate::templates::register_helpers;
+use crate::query::Query;
 
 #[derive(Clone)]
 pub struct App {
@@ -44,22 +45,23 @@ fn redirect_to_root() -> Redirect {
 }
 
 #[get("/articles/<path..>")]
-fn serve_article(path: PathBuf) -> Result<Template, NotFound<String>> {
-    let _article_query = match path.to_str() {
-        Some(v) => v,
-        None => return Err(NotFound("".to_string())),
+fn serve_article(
+    index_state: &State<Arc<App>>,
+    path: PathBuf,
+) -> Result<Template, NotFound<String>> {
+    let query: Query = match path.to_str().unwrap().try_into() {
+        Ok(v) => v,
+        _ => return Err(NotFound("".to_string())),
     };
-    let _ctx = IndexContext::default();
-    todo!();
-    // match render(&article_query, &ctx) {
-    //     Ok(t) => Ok(Html(t)),
-    //     Err(error::Error::IoError(ref e)) if e.kind() == ErrorKind::NotFound => Err(NotFound(
-    //         format!("article not found for query: {:?}", article_query),
-    //     )),
-    //     Err(e) => {
-    //         panic!("error serving {:?}", e)
-    //     }
-    // }
+    let ctx = IndexContext::default();
+    match index_state.index.lock().unwrap().first(&query) {
+        Ok(a) => Ok(Template::render(a.article().body, ctx)),
+        Err(_e) => {
+        // Err(e) if e == Error::ArticleNotFound => {
+            return Err(NotFound("".to_string()));
+        },
+        // _ => todo!("generic error / 500"),
+    }
 }
 
 #[derive(Serialize, Debug, Default)]

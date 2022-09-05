@@ -22,6 +22,7 @@ pub struct Article {
     pub key: Ulid,
     pub id: String,
     pub title: String,
+    #[serde(skip_serializing, skip_deserializing)]
     pub body: String,
     pub properties: PropertySet,
     pub tags: HashSet<String>,

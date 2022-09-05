@@ -3,7 +3,7 @@ use std::fs::{self, create_dir_all, remove_dir, rename, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Utc};
 use rusty_ulid::Ulid;
 use serde_yaml;
@@ -24,13 +24,90 @@ impl Local {
 }
 
 pub struct LocalIterator {
+    path: PathBuf,
     query: Query,
     articles_walker: walkdir::IntoIter,
     id_walker: walkdir::IntoIter,
 }
 
 impl LocalIterator {
+    fn load_article(&mut self, key: &Ulid) -> Result<Article> {
+        eprintln!("load_article({:?})", key);
+        let mut walker = WalkDir::new(&self.path.join("index/key"))
+            .sort_by_file_name()
+            .min_depth(1)
+            .into_iter();
+        let mut search = key.to_string();
+        loop {
+            if let Some(entry) = walker.next() {
+                let entry = entry?;
+                if entry.file_type().is_file() {
+                    continue;
+                }
+
+                dbg!(&entry);
+                match common_prefix(entry.file_name().to_str().unwrap(), &search) {
+                    (_, _, remainder) if remainder.is_empty() => {
+                        dbg!(&remainder);
+                        let article: Article = serde_yaml::from_str(&fs::read_to_string(
+                            &entry.path().join("meta.yaml"),
+                        )?)?;
+                        return Ok(article);
+                    }
+                    (prefix, _, remainder) if !prefix.is_empty() && !remainder.is_empty() => {
+                        dbg!(&prefix, &remainder);
+                        search = remainder.to_owned();
+                        continue;
+                    },
+                    (a, b, remainder) if b.is_empty() && remainder.is_empty() => {
+                        dbg!(&a, &b, &remainder);
+                        continue;
+                    }
+                    m => unreachable!("attempted to lookup empty limb in trie {:?}", m),
+                }
+
+                // let entry_path = entry.path();
+                // dbg!(&entry_path);
+                // let article: Article = serde_yaml::from_str(&fs::read_to_string(&entry_path)?)?;
+                // return Ok(article);
+            } else {
+                todo!("not found");
+            }
+        }
+    }
+
+    fn load_article_body(&mut self, key: &Ulid) -> Result<String> {
+        eprintln!("load_article_body({:?})", key);
+        let mut walker = WalkDir::new(&self.path.join("articles"))
+            .sort_by_file_name()
+            .min_depth(1)
+            .into_iter();
+        while let Some(entry) = walker.next() {
+            let entry = entry?;
+            if !entry.file_type().is_file() {
+                continue;
+            }
+
+            dbg!(&entry);
+            let entry_path = entry.path();
+            let found_key: Ulid = entry_path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .strip_suffix(".html.hbs")
+                .unwrap()
+                .parse()?;
+            if key == &found_key {
+                dbg!(&key, &found_key);
+                return fs::read_to_string(&entry_path).map_err(anyhow::Error::from);
+            }
+        }
+        Err(anyhow!("article with key {} not found", key))
+    }
+
     fn try_next(&mut self) -> Result<Option<<LocalIterator as Iterator>::Item>> {
+        eprintln!("try_next({:?})", self.query);
         if let Some(ref id) = self.query.id {
             loop {
                 if let Some(entry) = self.id_walker.next() {
@@ -50,18 +127,15 @@ impl LocalIterator {
                         continue;
                     }
 
+                    dbg!(&entry);
                     match common_prefix(entry.file_name().to_str().unwrap(), id) {
                         (_, _, remainder) if remainder.is_empty() => {
-                            let key: Ulid = fs::read_to_string(entry.path().join("id"))?.parse()?;
+                            dbg!(&remainder);
+                            let key: Ulid = fs::read_to_string(&dbg!(entry.path().join("key.txt")))?.parse()?;
+                            let mut article = self.load_article(&key)?;
+                            article.body = self.load_article_body(&key)?;
                             return Ok(Some(Box::new(LocalEntry {
-                                article: Article {
-                                    key,
-                                    id: id.to_owned(),
-                                    title: String::new(),
-                                    body: String::new(),
-                                    properties: PropertySet::new(),
-                                    tags: HashSet::new(),
-                                },
+                                article,
                                 path: entry.path().to_owned(),
                             })));
                         }
@@ -99,7 +173,16 @@ impl LocalIterator {
                         continue;
                     }
                     let entry_path = entry.path();
-                    let article: Article = serde_yaml::from_str(&fs::read_to_string(&entry_path)?)?;
+                    let key: Ulid = entry_path
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .strip_suffix(".html.hbs")
+                        .unwrap()
+                        .parse()?;
+                    let mut article = self.load_article(&key)?;
+                    article.body = fs::read_to_string(&entry_path)?;
                     return Ok(Some(Box::new(LocalEntry {
                         article,
                         path: entry_path.to_path_buf(),
@@ -145,28 +228,31 @@ impl Index for Local {
     fn update(&mut self, article: &Article) -> Result<Box<dyn Entry>> {
         let now: DateTime<Utc> = article.timestamp().parse().unwrap();
 
+        // First store the raw article body as a handlebars template
         let key = article.key.to_string();
         let article_root = self.path.join("articles");
         create_dir_all(&article_root)?;
         let path = update_dir_trie(&article_root, Path::new(&datetime_to_filename(&now)))?;
 
-        let article_path = path.join(format!("{}.yaml", key));
+        let article_path = path.join(format!("{}.html.hbs", key));
         let mut article_file = File::create(&article_path)?;
-        article_file.write_all(serde_yaml::to_string(&article)?.as_bytes())?;
+        article_file.write_all(article.body.as_bytes())?;
 
+        // We store meta data in the key index, for fast lookup
         let key_root = self.path.join("index/key");
         create_dir_all(&key_root)?;
         let path = update_dir_trie(&key_root, Path::new(&key))?;
 
-        let mut key_index_file = File::create(&path.join("key"))?;
-        key_index_file.write_all(key.as_bytes())?;
+        let mut key_index_file = File::create(&path.join("meta.yaml"))?;
+        key_index_file.write_all(serde_yaml::to_string(&article)?.as_bytes())?;
 
+        // All other indexes could be a symlink to the meta data, or the article
         let id_root = self.path.join("index/id");
         create_dir_all(&id_root)?;
         let path = update_dir_trie(&id_root, Path::new(&article.id))?;
 
-        let mut id_index_file = File::create(&path.join("id"))?;
-        id_index_file.write_all(key.as_bytes())?;
+        let mut key_index_file = File::create(&path.join("key.txt"))?;
+        key_index_file.write_all(key.as_bytes())?;
 
         for tag in article.tags.iter() {
             let tag_root = self.path.join("index/tags");
@@ -186,6 +272,7 @@ impl Index for Local {
     // search returns an iterator that returns all articles that match the supplied query
     fn search(&mut self, query: &Query) -> Result<Box<dyn Iterator<Item = Box<dyn Entry>>>> {
         Ok(Box::new(LocalIterator {
+            path: self.path.clone(),
             query: query.clone(),
             articles_walker: WalkDir::new(&self.path.join("articles"))
                 .sort_by_file_name()
@@ -210,7 +297,7 @@ fn move_contents(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<PathBuf> {
+fn update_dir_trie(root: &Path, location: &Path) -> Result<PathBuf> {
     eprintln!("update_dir_trie({:?}, {:?})", &root, &location);
     for entry in WalkDir::new(root)
         .sort_by_file_name()
@@ -242,6 +329,9 @@ fn update_dir_trie(root: &Path, location: &Path) -> std::io::Result<PathBuf> {
             }
             (_, _, remainder) if !remainder.is_empty() => {
                 return update_dir_trie(entry.path(), Path::new(remainder));
+            }
+            (prefix, suffix, remainder) if suffix.is_empty() && remainder.is_empty() => {
+                bail!("entry already exists in trie: {}", prefix);
             }
             m => unreachable!("attempted to store empty limb in trie {:?}", m),
         }
