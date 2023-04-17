@@ -48,7 +48,7 @@ impl<'a> TryFrom<&'a str> for Query {
 
         for capture in query.split_whitespace() {
             if let Some(id) = capture.strip_prefix('@') {
-                if result.id == None {
+                if result.id.is_none() {
                     result.id = Some(id.into());
                 } else {
                     return Err(QueryParseError::DuplicateID);

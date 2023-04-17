@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fs::{self, create_dir_all, remove_dir, rename, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -9,7 +8,7 @@ use rusty_ulid::Ulid;
 use serde_yaml;
 use walkdir::WalkDir;
 
-use crate::articles::{Article, PropertySet};
+use crate::articles::Article;
 use crate::index::{Entry, Index};
 use crate::query::Query;
 
@@ -50,7 +49,7 @@ impl LocalIterator {
                     (_, _, remainder) if remainder.is_empty() => {
                         dbg!(&remainder);
                         let article: Article = serde_yaml::from_str(&fs::read_to_string(
-                            &entry.path().join("meta.yaml"),
+                            entry.path().join("meta.yaml"),
                         )?)?;
                         return Ok(article);
                     }
@@ -58,7 +57,7 @@ impl LocalIterator {
                         dbg!(&prefix, &remainder);
                         search = remainder.to_owned();
                         continue;
-                    },
+                    }
                     (a, b, remainder) if b.is_empty() && remainder.is_empty() => {
                         dbg!(&a, &b, &remainder);
                         continue;
@@ -82,7 +81,7 @@ impl LocalIterator {
             .sort_by_file_name()
             .min_depth(1)
             .into_iter();
-        while let Some(entry) = walker.next() {
+        for entry in walker {
             let entry = entry?;
             if !entry.file_type().is_file() {
                 continue;
@@ -100,7 +99,7 @@ impl LocalIterator {
                 .parse()?;
             if key == &found_key {
                 dbg!(&key, &found_key);
-                return fs::read_to_string(&entry_path).map_err(anyhow::Error::from);
+                return fs::read_to_string(entry_path).map_err(anyhow::Error::from);
             }
         }
         Err(anyhow!("article with key {} not found", key))
@@ -131,7 +130,8 @@ impl LocalIterator {
                     match common_prefix(entry.file_name().to_str().unwrap(), id) {
                         (_, _, remainder) if remainder.is_empty() => {
                             dbg!(&remainder);
-                            let key: Ulid = fs::read_to_string(&dbg!(entry.path().join("key.txt")))?.parse()?;
+                            let key: Ulid =
+                                fs::read_to_string(dbg!(entry.path().join("key.txt")))?.parse()?;
                             let mut article = self.load_article(&key)?;
                             article.body = self.load_article_body(&key)?;
                             return Ok(Some(Box::new(LocalEntry {
@@ -182,7 +182,7 @@ impl LocalIterator {
                         .unwrap()
                         .parse()?;
                     let mut article = self.load_article(&key)?;
-                    article.body = fs::read_to_string(&entry_path)?;
+                    article.body = fs::read_to_string(entry_path)?;
                     return Ok(Some(Box::new(LocalEntry {
                         article,
                         path: entry_path.to_path_buf(),
@@ -274,11 +274,11 @@ impl Index for Local {
         Ok(Box::new(LocalIterator {
             path: self.path.clone(),
             query: query.clone(),
-            articles_walker: WalkDir::new(&self.path.join("articles"))
+            articles_walker: WalkDir::new(self.path.join("articles"))
                 .sort_by_file_name()
                 .min_depth(1)
                 .into_iter(),
-            id_walker: WalkDir::new(&self.path.join("index/id"))
+            id_walker: WalkDir::new(self.path.join("index/id"))
                 .sort_by_file_name()
                 .min_depth(1)
                 .into_iter(),
@@ -287,7 +287,7 @@ impl Index for Local {
 }
 
 fn move_contents(from: &Path, to: &Path) -> std::io::Result<()> {
-    for entry in WalkDir::new(&from).min_depth(1).max_depth(1).into_iter() {
+    for entry in WalkDir::new(from).min_depth(1).max_depth(1).into_iter() {
         let entry = entry?;
         rename(
             entry.path(),
@@ -321,7 +321,7 @@ fn update_dir_trie(root: &Path, location: &Path) -> Result<PathBuf> {
                 let new_path = new_root.join(suffix);
                 create_dir_all(&new_path)?;
                 move_contents(entry.path(), &new_path)?;
-                remove_dir(&entry.path())?;
+                remove_dir(entry.path())?;
                 if !remainder.is_empty() {
                     return update_dir_trie(&new_root, Path::new(remainder));
                 }

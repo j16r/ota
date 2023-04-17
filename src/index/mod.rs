@@ -5,7 +5,7 @@ use anyhow::Result;
 use thiserror::Error;
 
 use crate::articles::Article;
-use crate::query::{self, Query};
+use crate::query::Query;
 
 pub trait Entry {
     fn article(&self) -> Article;

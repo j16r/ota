@@ -16,8 +16,8 @@ use rocket_dyn_templates::Template;
 
 use crate::articles::{Article, NewArticleRequest};
 use crate::index::{local::Local, Index};
-use crate::templates::register_helpers;
 use crate::query::Query;
+use crate::templates::register_helpers;
 
 #[derive(Clone)]
 pub struct App {
@@ -57,9 +57,9 @@ fn serve_article(
     match index_state.index.lock().unwrap().first(&query) {
         Ok(a) => Ok(Template::render(a.article().body, ctx)),
         Err(_e) => {
-        // Err(e) if e == Error::ArticleNotFound => {
-            return Err(NotFound("".to_string()));
-        },
+            // Err(e) if e == Error::ArticleNotFound => {
+            Err(NotFound("".to_string()))
+        }
         // _ => todo!("generic error / 500"),
     }
 }
